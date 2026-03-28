@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { auth, firebaseConfigError } from '../config/firebase';
 import { useToast } from '../components/ToastProvider';
 import useFadeInUp from '../hooks/useFadeInUp';
 import {
@@ -33,6 +33,9 @@ const SignupScreen = ({ navigation }) => {
   const { showToast } = useToast();
   const headerAnimation = useFadeInUp({ delay: 0 });
   const formAnimation = useFadeInUp({ delay: 100 });
+  const configError = firebaseConfigError
+    ? 'This build is missing Firebase setup. Please install the latest APK.'
+    : '';
 
   const passwordsMatch = password === confirmPassword;
   const isFormValid = useMemo(
@@ -46,6 +49,12 @@ const SignupScreen = ({ navigation }) => {
 
   const handleSignup = async () => {
     if (!isFormValid || isLoading) {
+      return;
+    }
+
+    if (!auth) {
+      setAuthError(configError || 'Signup is unavailable in this build.');
+      showToast(configError || 'Signup is unavailable in this build.', { type: 'error' });
       return;
     }
 
@@ -190,20 +199,20 @@ const SignupScreen = ({ navigation }) => {
             </View>
           ) : null}
 
-          {authError ? (
+          {configError || authError ? (
             <View style={styles.errorBanner}>
               <Ionicons name="alert-circle-outline" size={18} color="#FF6B6B" />
-              <Text style={styles.errorText}>{authError}</Text>
+              <Text style={styles.errorText}>{configError || authError}</Text>
             </View>
           ) : null}
 
           <TouchableOpacity
             style={[
               styles.button,
-              (!isFormValid || isLoading) && styles.buttonDisabled,
+              (!isFormValid || isLoading || !auth) && styles.buttonDisabled,
             ]}
             onPress={handleSignup}
-            disabled={!isFormValid || isLoading}
+            disabled={!isFormValid || isLoading || !auth}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />

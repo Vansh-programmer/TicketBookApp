@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../config/firebase';
+import { auth, firebaseConfigError } from '../config/firebase';
 import { subscribeToUserBookings } from '../services/bookings';
 
 const MyTicketsScreen = ({ navigation }) => {
@@ -17,6 +17,12 @@ const MyTicketsScreen = ({ navigation }) => {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!auth) {
+      setError(firebaseConfigError || 'Firebase is not configured for this build.');
+      setLoading(false);
+      return;
+    }
+
     const user = auth.currentUser;
 
     if (!user) {

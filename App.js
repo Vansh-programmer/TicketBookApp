@@ -2,6 +2,8 @@ import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from './src/components/ToastProvider';
 import { initializeSoundEffects } from './src/config/soundManifest';
 import SplashScreen from './src/screens/SplashScreen';
@@ -24,30 +26,34 @@ export default function App() {
   }, []);
 
   return (
-    <ToastProvider>
-      <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName="Splash"
-          screenOptions={{
-            headerShown: false,
-            cardStyle: {
-              backgroundColor: '#050505',
-            },
-          }}
-        >
-          <Stack.Screen name="Splash" component={SplashScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Signup" component={SignupScreen} />
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="MyTickets" component={MyTicketsScreen} />
-          <Stack.Screen name="Movies" component={MovieListScreen} />
-          <Stack.Screen name="MovieDetails" component={MovieDetailsScreen} />
-          <Stack.Screen name="LocationSelection" component={LocationSelectionScreen} />
-          <Stack.Screen name="DateSelection" component={DateSelectionScreen} />
-          <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
-          <Stack.Screen name="DigitalTicket" component={DigitalTicketScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </ToastProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ToastProvider>
+          <NavigationContainer>
+            <Stack.Navigator
+              initialRouteName="Splash"
+              screenOptions={{
+                headerShown: false,
+                cardStyle: {
+                  backgroundColor: '#050505',
+                },
+              }}
+            >
+              <Stack.Screen name="Splash" component={SplashScreen} />
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Signup" component={SignupScreen} />
+              <Stack.Screen name="Home" component={HomeScreen} />
+              <Stack.Screen name="MyTickets" component={MyTicketsScreen} />
+              <Stack.Screen name="Movies" component={MovieListScreen} />
+              <Stack.Screen name="MovieDetails" component={MovieDetailsScreen} />
+              <Stack.Screen name="LocationSelection" component={LocationSelectionScreen} />
+              <Stack.Screen name="DateSelection" component={DateSelectionScreen} />
+              <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
+              <Stack.Screen name="DigitalTicket" component={DigitalTicketScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </ToastProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

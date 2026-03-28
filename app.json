@@ -1,5 +1,16 @@
 {
-  "plugins": [
-    "expo-audio"
-  ]
+  "expo": {
+    "android": {
+      "package": "com.vanshpoonia.ticketbookapp"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a45a26c0-ff50-4f03-bafc-f8afbd18fbce"
+      }
+    },
+    "plugins": [
+      "expo-audio",
+      "expo-asset"
+    ]
+  }
 }

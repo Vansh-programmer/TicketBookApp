@@ -193,7 +193,7 @@ const HomeScreen = () => {
   };
 
   const userLabel =
-    auth.currentUser?.email?.split('@')[0] || auth.currentUser?.displayName || 'Movie fan';
+    auth?.currentUser?.email?.split('@')[0] || auth?.currentUser?.displayName || 'Movie fan';
 
   if (loading) {
     return <Loader label="Loading movies..." />;

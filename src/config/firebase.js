@@ -20,24 +20,33 @@ const missingConfig = Object.entries(firebaseConfig)
   .filter(([, value]) => !value)
   .map(([key]) => key);
 
-if (missingConfig.length) {
-  console.warn(
-    `Firebase config is missing: ${missingConfig.join(', ')}. Add the EXPO_PUBLIC_FIREBASE_* values to .env.`,
-  );
+export const firebaseConfigError = missingConfig.length
+  ? `Firebase config is missing: ${missingConfig.join(', ')}.`
+  : '';
+
+export const isFirebaseConfigured = !firebaseConfigError;
+
+if (firebaseConfigError) {
+  console.warn(`${firebaseConfigError} Add the EXPO_PUBLIC_FIREBASE_* values to .env or EAS environment variables.`);
 }
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const app = isFirebaseConfigured
+  ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
+  : null;
 
 let auth;
+let db;
 
-try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-} catch (error) {
-  auth = getAuth(app);
+if (app) {
+  try {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch (error) {
+    auth = getAuth(app);
+  }
+
+  db = getFirestore(app);
 }
-
-const db = getFirestore(app);
 
 export { app, auth, db };

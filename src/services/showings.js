@@ -20,6 +20,14 @@ export const buildShowingId = ({ movieId, date, time, theater }) =>
   ].join('_');
 
 export const subscribeToShowing = (showingId, onData, onError) => {
+  if (!db) {
+    onError?.({
+      code: 'firebase/not-configured',
+      message: 'Firebase is not configured for this build.',
+    });
+    return () => {};
+  }
+
   const showingRef = doc(db, 'showings', showingId);
 
   return onSnapshot(

@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { auth, firebaseConfigError } from '../config/firebase';
 import { useToast } from '../components/ToastProvider';
 import useFadeInUp from '../hooks/useFadeInUp';
 import {
@@ -33,6 +33,9 @@ const LoginScreen = () => {
   const { showToast } = useToast();
   const headerAnimation = useFadeInUp({ delay: 0 });
   const formAnimation = useFadeInUp({ delay: 100 });
+  const configError = firebaseConfigError
+    ? 'This build is missing Firebase setup. Please install the latest APK.'
+    : '';
 
   const isFormValid = useMemo(
     () => email.trim().length > 0 && password.trim().length > 0,
@@ -41,6 +44,12 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     if (!isFormValid || isLoading) {
+      return;
+    }
+
+    if (!auth) {
+      setAuthError(configError || 'Login is unavailable in this build.');
+      showToast(configError || 'Login is unavailable in this build.', { type: 'error' });
       return;
     }
 
@@ -75,7 +84,7 @@ const LoginScreen = () => {
       >
         <Animated.View style={headerAnimation}>
           <View style={styles.logoContainer}>
-            <Ionicons name="cinema" size={80} color="#E50914" />
+            <Ionicons name="film-outline" size={80} color="#E50914" />
             <Text style={styles.logoText}>Cinema</Text>
             <Text style={styles.logoText}>
               <Text style={styles.redLogoText}>Ticket</Text>
@@ -140,20 +149,20 @@ const LoginScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {authError ? (
+          {configError || authError ? (
             <View style={styles.errorBanner}>
               <Ionicons name="alert-circle-outline" size={18} color="#FF6B6B" />
-              <Text style={styles.errorText}>{authError}</Text>
+              <Text style={styles.errorText}>{configError || authError}</Text>
             </View>
           ) : null}
 
           <TouchableOpacity
             style={[
               styles.button,
-              (!isFormValid || isLoading) && styles.buttonDisabled,
+              (!isFormValid || isLoading || !auth) && styles.buttonDisabled,
             ]}
             onPress={handleLogin}
-            disabled={!isFormValid || isLoading}
+            disabled={!isFormValid || isLoading || !auth}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
@@ -179,7 +188,7 @@ const LoginScreen = () => {
 
         <View style={styles.footer}>
           <View style={styles.footerLogo}>
-            <Ionicons name="cinema" size={24} color="#E50914" />
+            <Ionicons name="film-outline" size={24} color="#E50914" />
           </View>
           <Text style={styles.footerText}>© 2026 Cinema Ticket Booking</Text>
         </View>

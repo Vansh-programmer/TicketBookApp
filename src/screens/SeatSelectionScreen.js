@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../config/firebase';
+import { auth, firebaseConfigError } from '../config/firebase';
 import { useToast } from '../components/ToastProvider';
 import {
   getBookingErrorMessage,
@@ -78,6 +78,12 @@ const SeatSelectionScreen = ({ navigation, route }) => {
       return;
     }
 
+    if (!auth) {
+      setScreenError(firebaseConfigError || 'Firebase is not configured for this build.');
+      setLoadingSeats(false);
+      return;
+    }
+
     const unsubscribe = subscribeToShowing(
       showingId,
       (showing) => {
@@ -126,7 +132,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
       return;
     }
 
-    const user = auth.currentUser;
+    const user = auth?.currentUser;
 
     if (!user) {
       setScreenError('Please sign in again before booking your seats.');

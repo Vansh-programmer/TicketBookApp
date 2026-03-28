@@ -29,6 +29,12 @@ export const reserveSeatsAndCreateBooking = async ({
   seats,
   showingId,
 }) => {
+  if (!db) {
+    const error = new Error('Firebase is not configured for this build.');
+    error.code = 'firebase/not-configured';
+    throw error;
+  }
+
   const showingRef = doc(db, SHOWINGS_COLLECTION, showingId);
   const bookingRef = doc(collection(db, BOOKINGS_COLLECTION));
   const ticketId = `TKT-${bookingRef.id.slice(0, 8).toUpperCase()}`;
@@ -104,6 +110,10 @@ export const getBookingErrorMessage = (error) => {
     return 'Firestore is not fully set up yet. Please create the database in Firebase Console.';
   }
 
+  if (error?.code === 'firebase/not-configured') {
+    return 'This app build is missing Firebase configuration. Please reinstall the latest APK.';
+  }
+
   if (error?.code === 'unavailable') {
     return 'Network issue while booking. Please check your connection and try again.';
   }
@@ -112,6 +122,14 @@ export const getBookingErrorMessage = (error) => {
 };
 
 export const subscribeToUserBookings = (userId, onData, onError) => {
+  if (!db) {
+    onError?.({
+      code: 'firebase/not-configured',
+      message: 'Firebase is not configured for this build.',
+    });
+    return () => {};
+  }
+
   const bookingsRef = collection(db, BOOKINGS_COLLECTION);
   const bookingsQuery = query(bookingsRef, where('userId', '==', userId));
 

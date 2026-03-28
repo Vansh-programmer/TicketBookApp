@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { auth, firebaseConfigError } from '../config/firebase';
 
 const { width } = Dimensions.get('window');
 
@@ -38,6 +38,11 @@ const SplashScreen = ({ navigation }) => {
     let unsubscribeAuth = () => {};
 
     const timer = setTimeout(() => {
+      if (!auth) {
+        navigation.replace('Login', { firebaseConfigError });
+        return;
+      }
+
       unsubscribeAuth = onAuthStateChanged(auth, (user) => {
         if (!isMounted) {
           return;
@@ -94,7 +99,7 @@ const SplashScreen = ({ navigation }) => {
         {/* Splash Screen Footer with Logo */}
         <View style={styles.footer}>
           <View style={styles.logoContainer}>
-            <Ionicons name="cinema" size={32} color="#E50914" />
+            <Ionicons name="film-outline" size={32} color="#E50914" />
           </View>
           <Text style={styles.footerText}>© 2024 Cinema Ticket Booking</Text>
         </View>
