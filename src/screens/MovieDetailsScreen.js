@@ -26,6 +26,7 @@ import {
   getImageUrl,
   getTrailerUrl,
 } from '../services/tmdb';
+import { extractYouTubeVideoId } from '../services/streamCatalog';
 
 const MovieDetailsScreen = () => {
   const navigation = useNavigation();
@@ -126,6 +127,25 @@ const MovieDetailsScreen = () => {
     }
   };
 
+  const trailerVideoId = extractYouTubeVideoId(trailerUrl);
+
+  const handlePlayTrailerInApp = () => {
+    if (!trailerVideoId) {
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      showToast('In-app playback is not available for this trailer yet.', { type: 'error' });
+      return;
+    }
+
+    playSoundEffect(SOUND_EFFECT_KEYS.TRAILER);
+    navigation.navigate('Player', {
+      videoId: trailerVideoId,
+      title: movie.title || movie.name,
+      subtitle: 'Trailer • In-app playback',
+      description: movie.overview,
+      badge: 'Trailer',
+    });
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -178,16 +198,39 @@ const MovieDetailsScreen = () => {
           <View style={styles.overviewContainer}>
             <Text style={styles.overviewTitle}>Overview</Text>
             <Text style={styles.overviewText}>{movie.overview}</Text>
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.trailerButton, !trailerVideoId && styles.trailerButtonDisabled]}
+                onPress={handlePlayTrailerInApp}
+                disabled={!trailerVideoId}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="play-circle-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.trailerButtonText}>
+                  {trailerVideoId ? 'Play In App' : 'In-App Unavailable'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.secondaryButton, !trailerUrl && styles.trailerButtonDisabled]}
+                onPress={handleWatchTrailer}
+                disabled={!trailerUrl}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="logo-youtube" size={20} color="#FFFFFF" />
+                <Text style={styles.trailerButtonText}>
+                  {trailerUrl ? 'Open Trailer' : 'Trailer Unavailable'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
-              style={[styles.trailerButton, !trailerUrl && styles.trailerButtonDisabled]}
-              onPress={handleWatchTrailer}
-              disabled={!trailerUrl}
+              style={styles.streamButton}
+              onPress={() => navigation.navigate('Home', { screen: 'Stream' })}
               activeOpacity={0.85}
             >
-              <Ionicons name="play-circle-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.trailerButtonText}>
-                {trailerUrl ? 'Watch Trailer' : 'Trailer Unavailable'}
-              </Text>
+              <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.streamButtonText}>Explore the new Stream tab</Text>
             </TouchableOpacity>
           </View>
 
@@ -213,6 +256,7 @@ const MovieDetailsScreen = () => {
             navigation.navigate('LocationSelection', {
               movieTitle: movie.title || movie.name,
               movieId,
+              moviePoster: movie.poster_path ? getImageUrl(movie.poster_path) : null,
             });
           }}
         >
@@ -389,10 +433,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignSelf: 'flex-start',
   },
+  actionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 18,
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#26262B',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+  },
   trailerButtonDisabled: {
     backgroundColor: '#383838',
   },
   trailerButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  streamButton: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+  },
+  streamButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
     marginLeft: 8,

@@ -15,16 +15,28 @@ import { useNavigation } from '@react-navigation/native';
 import { auth } from '../config/firebase';
 import Loader from '../components/Loader';
 import useFadeInUp from '../hooks/useFadeInUp';
+import { useSession } from '../context/SessionProvider';
 import {
   playSoundEffect,
   SOUND_EFFECT_KEYS,
 } from '../services/soundEffects';
-import { fetchNowPlaying, fetchUpcoming, getImageUrl } from '../services/tmdb';
+import { getFeaturedStream } from '../services/streamCatalog';
+import {
+  fetchIndianCinema,
+  fetchNowPlaying,
+  fetchPopular,
+  fetchUpcoming,
+  getImageUrl,
+} from '../services/tmdb';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
+  const { isAdmin } = useSession();
   const [nowPlaying, setNowPlaying] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
+  const [indianSpotlight, setIndianSpotlight] = useState([]);
+  const [popularMovies, setPopularMovies] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -35,26 +47,59 @@ const HomeScreen = () => {
   const heroListRef = useRef(null);
   const heroIndexRef = useRef(0);
   const heroWidth = Dimensions.get('window').width - 40;
+  const featuredStream = getFeaturedStream();
 
   const featuredMovies = useMemo(() => nowPlaying.slice(0, 5), [nowPlaying]);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const matchesSearch = (movie) => {
+    if (!normalizedSearchQuery) {
+      return true;
+    }
+
+    const title = movie.title || movie.name || '';
+    return title.toLowerCase().includes(normalizedSearchQuery);
+  };
+
+  const filteredNowPlaying = useMemo(
+    () => nowPlaying.filter(matchesSearch),
+    [nowPlaying, normalizedSearchQuery],
+  );
+  const filteredUpcoming = useMemo(
+    () => upcoming.filter(matchesSearch),
+    [normalizedSearchQuery, upcoming],
+  );
+  const filteredIndianSpotlight = useMemo(
+    () => indianSpotlight.filter(matchesSearch),
+    [indianSpotlight, normalizedSearchQuery],
+  );
+  const filteredPopularMovies = useMemo(
+    () => popularMovies.filter(matchesSearch),
+    [normalizedSearchQuery, popularMovies],
+  );
   const movieSections = useMemo(
     () => [
-      { key: 'now_playing', title: 'Now Playing', movies: nowPlaying },
-      { key: 'upcoming', title: 'Upcoming', movies: upcoming },
+      { key: 'indian_spotlight', title: 'Indian Spotlight', movies: filteredIndianSpotlight },
+      { key: 'now_playing', title: 'Now Playing', movies: filteredNowPlaying },
+      { key: 'popular', title: 'Popular on TicketBook', movies: filteredPopularMovies },
+      { key: 'upcoming', title: 'Upcoming', movies: filteredUpcoming },
     ],
-    [nowPlaying, upcoming],
+    [filteredIndianSpotlight, filteredNowPlaying, filteredPopularMovies, filteredUpcoming],
   );
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [nowPlayingData, upcomingData] = await Promise.all([
+        const [nowPlayingData, upcomingData, indianCinemaData, popularData] = await Promise.all([
           fetchNowPlaying(),
           fetchUpcoming(),
+          fetchIndianCinema(),
+          fetchPopular(),
         ]);
 
         setNowPlaying(nowPlayingData.results.slice(0, 20));
         setUpcoming(upcomingData.results.slice(0, 20));
+        setIndianSpotlight((indianCinemaData.results || []).slice(0, 20));
+        setPopularMovies((popularData.results || []).slice(0, 20));
         setError(null);
         setLoading(false);
       } catch (err) {
@@ -70,12 +115,16 @@ const HomeScreen = () => {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      const [nowPlayingData, upcomingData] = await Promise.all([
+      const [nowPlayingData, upcomingData, indianCinemaData, popularData] = await Promise.all([
         fetchNowPlaying(),
         fetchUpcoming(),
+        fetchIndianCinema(),
+        fetchPopular(),
       ]);
       setNowPlaying(nowPlayingData.results.slice(0, 20));
       setUpcoming(upcomingData.results.slice(0, 20));
+      setIndianSpotlight((indianCinemaData.results || []).slice(0, 20));
+      setPopularMovies((popularData.results || []).slice(0, 20));
     } catch (err) {
       console.error('Error refreshing data:', err);
     } finally {
@@ -140,20 +189,26 @@ const HomeScreen = () => {
           <TouchableOpacity
             onPress={() => {
               playSoundEffect(SOUND_EFFECT_KEYS.TAP);
-              navigation.navigate('Movies', { section: item.key });
+              navigation.getParent()?.navigate('Movies', { section: item.key });
             }}
           >
             <Text style={styles.sectionLink}>See all</Text>
           </TouchableOpacity>
         </View>
-        <FlatList
-          data={item.movies}
-          renderItem={renderMovie}
-          keyExtractor={(movie) => movie.id.toString()}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-        />
+        {item.movies.length > 0 ? (
+          <FlatList
+            data={item.movies}
+            renderItem={renderMovie}
+            keyExtractor={(movie) => movie.id.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+          />
+        ) : (
+          <View style={styles.emptySection}>
+            <Text style={styles.emptySectionText}>No movies match that search yet.</Text>
+          </View>
+        )}
       </View>
     </Animated.View>
   );
@@ -268,7 +323,7 @@ const HomeScreen = () => {
             style={styles.quickActionButton}
             onPress={() => {
               playSoundEffect(SOUND_EFFECT_KEYS.TAP);
-              navigation.navigate('MyTickets');
+              navigation.navigate('Tickets');
             }}
           >
             <Ionicons name="ticket-outline" size={18} color="#FFFFFF" />
@@ -278,11 +333,53 @@ const HomeScreen = () => {
             style={styles.quickActionButton}
             onPress={() => {
               playSoundEffect(SOUND_EFFECT_KEYS.TAP);
-              navigation.navigate('Movies', { section: 'now_playing' });
+              navigation.getParent()?.navigate('Movies', { section: 'now_playing' });
             }}
           >
             <Ionicons name="grid-outline" size={18} color="#FFFFFF" />
             <Text style={styles.quickActionText}>Browse Movies</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+
+      {isAdmin ? (
+        <Animated.View style={toolsAnimation}>
+          <View style={styles.quickActions}>
+            <TouchableOpacity
+              style={styles.quickActionButton}
+              onPress={() => {
+                playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                navigation.navigate('Admin');
+              }}
+            >
+              <Ionicons name="shield-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.quickActionText}>Admin Panel</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      ) : null}
+
+      <Animated.View style={toolsAnimation}>
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => {
+              playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+              navigation.navigate('Stream');
+            }}
+          >
+            <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.quickActionText}>Watch Now</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => {
+              playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+              navigation.navigate('Community');
+            }}
+          >
+            <Ionicons name="people-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.quickActionText}>Community</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -292,16 +389,46 @@ const HomeScreen = () => {
           <Ionicons name="search" size={20} color="#808080" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search movies..."
+            placeholder="Search movies, then jump into streaming..."
             placeholderTextColor="#606060"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
           <TouchableOpacity
             style={styles.searchIconContainer}
-            onPress={() => playSoundEffect(SOUND_EFFECT_KEYS.TAP)}
+            onPress={() => {
+              playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+              navigation.navigate('Stream');
+            }}
           >
-            <Ionicons name="options" size={20} color="#808080" />
+            <Ionicons name="play" size={20} color="#808080" />
           </TouchableOpacity>
         </View>
+      </Animated.View>
+
+      <Animated.View style={toolsAnimation}>
+        <TouchableOpacity
+          style={styles.discoveryCard}
+          activeOpacity={0.92}
+          onPress={() => {
+            playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+            navigation.navigate('Stream');
+          }}
+        >
+          <View style={styles.discoveryCardCopy}>
+            <Text style={styles.discoveryEyebrow}>New in app</Text>
+            <Text style={styles.discoveryTitle}>Stream with YouTube playback</Text>
+            <Text style={styles.discoveryText}>
+              Jump from booking into a Netflix-style watch area with mobile-friendly in-app playback.
+            </Text>
+            <Text style={styles.discoveryMeta}>
+              Featured: {featuredStream.title} • {featuredStream.duration}
+            </Text>
+          </View>
+          <View style={styles.discoveryIconBubble}>
+            <Ionicons name="play-circle" size={34} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
       </Animated.View>
     </>
   );
@@ -370,9 +497,57 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 12,
     flexDirection: 'row',
     gap: 12,
+  },
+  discoveryCard: {
+    marginHorizontal: 20,
+    marginBottom: 18,
+    borderRadius: 22,
+    padding: 18,
+    backgroundColor: '#12161F',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  discoveryCardCopy: {
+    flex: 1,
+    paddingRight: 14,
+  },
+  discoveryEyebrow: {
+    color: '#E50914',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  discoveryTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  discoveryText: {
+    color: '#C8C8CC',
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  discoveryMeta: {
+    color: '#8A8A92',
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  discoveryIconBubble: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#E50914',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   heroSection: {
     marginBottom: 22,
@@ -466,6 +641,17 @@ const styles = StyleSheet.create({
   },
   sectionContainer: {
     marginBottom: 30,
+  },
+  emptySection: {
+    backgroundColor: '#111113',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    marginHorizontal: 20,
+  },
+  emptySectionText: {
+    color: '#8F8F97',
+    textAlign: 'center',
   },
   sectionHeader: {
     flexDirection: 'row',

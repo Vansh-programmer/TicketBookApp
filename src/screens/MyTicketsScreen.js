@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -50,6 +51,8 @@ const MyTicketsScreen = ({ navigation }) => {
 
   const renderTicket = ({ item }) => (
     <View style={styles.ticketCard}>
+      {item.moviePoster ? <Image source={{ uri: item.moviePoster }} style={styles.ticketPoster} /> : null}
+
       <View style={styles.ticketHeader}>
         <View style={styles.ticketBadge}>
           <Ionicons name="ticket-outline" size={16} color="#E50914" />
@@ -77,6 +80,23 @@ const MyTicketsScreen = ({ navigation }) => {
         <Ionicons name="apps-outline" size={16} color="#B0B0B0" />
         <Text style={styles.detailText}>Seats: {(item.seats || []).join(', ')}</Text>
       </View>
+
+      {item.theaterFormats?.length ? (
+        <View style={styles.formatRow}>
+          {item.theaterFormats.map((format) => (
+            <View key={format} style={styles.formatPill}>
+              <Text style={styles.formatPillText}>{format}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {item.priceDetails?.formattedTotal ? (
+        <View style={styles.priceRow}>
+          <Text style={styles.priceLabel}>Paid</Text>
+          <Text style={styles.priceValue}>{item.priceDetails.formattedTotal}</Text>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -89,11 +109,16 @@ const MyTicketsScreen = ({ navigation }) => {
     );
   }
 
+  const showBackButton = navigation.canGoBack();
+
   if (error) {
     return (
       <View style={styles.centerState}>
         <Text style={styles.stateText}>{error}</Text>
-        <TouchableOpacity style={styles.backHomeButton} onPress={() => navigation.navigate('Home')}>
+        <TouchableOpacity
+          style={styles.backHomeButton}
+          onPress={() => navigation.navigate('Home', { screen: 'Discover' })}
+        >
           <Text style={styles.backHomeText}>Back to Home</Text>
         </TouchableOpacity>
       </View>
@@ -103,12 +128,20 @@ const MyTicketsScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+        {showBackButton ? (
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.backButtonPlaceholder} />
+        )}
         <View style={styles.headerTextGroup}>
           <Text style={styles.headerTitle}>My Tickets</Text>
-          <Text style={styles.headerSubtitle}>All your booked movie reservations</Text>
+          <Text style={styles.headerSubtitle}>
+            {showBackButton
+              ? 'All your booked movie reservations'
+              : 'Your booking history inside the new app hub'}
+          </Text>
         </View>
       </View>
 
@@ -145,6 +178,10 @@ const styles = StyleSheet.create({
   backButton: {
     marginRight: 15,
   },
+  backButtonPlaceholder: {
+    width: 24,
+    marginRight: 15,
+  },
   headerTextGroup: {
     flex: 1,
   },
@@ -171,10 +208,16 @@ const styles = StyleSheet.create({
   ticketCard: {
     backgroundColor: '#141414',
     borderRadius: 18,
-    padding: 18,
+    padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  ticketPoster: {
+    width: '100%',
+    height: 180,
+    borderRadius: 14,
+    marginBottom: 16,
   },
   ticketHeader: {
     flexDirection: 'row',
@@ -217,6 +260,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 10,
     flex: 1,
+  },
+  formatRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  formatPill: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  formatPillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  priceRow: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceLabel: {
+    color: '#B0B0B0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  priceValue: {
+    color: '#E50914',
+    fontSize: 18,
+    fontWeight: '800',
   },
   centerState: {
     flex: 1,

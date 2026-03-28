@@ -1,43 +1,41 @@
 import React, { useMemo, useState } from 'react';
 import {
   Animated,
-  View,
-  Text,
-  StyleSheet,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import useFadeInUp from '../hooks/useFadeInUp';
-import {
-  playSoundEffect,
-  SOUND_EFFECT_KEYS,
-} from '../services/soundEffects';
-
-const DEFAULT_SHOWTIME = '7:30 PM';
+import { playSoundEffect, SOUND_EFFECT_KEYS } from '../services/soundEffects';
+import { formatInr, getStartingPrice } from '../services/bookingCatalog';
 
 const DateSelectionScreen = ({ navigation, route }) => {
   const [selectedDate, setSelectedDate] = useState(null);
-  const { movieId, movieTitle = 'Selected Movie', location } = route.params ?? {};
+  const [selectedShowtime, setSelectedShowtime] = useState(null);
+  const {
+    movieId,
+    movieTitle = 'Selected Movie',
+    moviePoster = null,
+    location,
+  } = route.params ?? {};
   const headerAnimation = useFadeInUp({ delay: 0 });
   const contentAnimation = useFadeInUp({ delay: 90 });
+  const showtimes = location?.theaterDetails?.showtimes || [];
 
-  const generateDates = () => {
+  const dates = useMemo(() => {
     const today = new Date();
-    return Array.from({ length: 7 }, (_, i) => {
+    return Array.from({ length: 7 }, (_, index) => {
       const date = new Date(today);
-      date.setDate(today.getDate() + i);
-
-      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      date.setDate(today.getDate() + index);
 
       return {
-        id: i,
-        dateObj: date,
-        day: dayNames[date.getDay()],
+        id: index,
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
         dayNumber: date.getDate(),
-        month: monthNames[date.getMonth()],
-        year: date.getFullYear(),
+        month: date.toLocaleDateString('en-US', { month: 'short' }),
         fullDate: date.toLocaleDateString('en-US', {
           weekday: 'long',
           year: 'numeric',
@@ -46,54 +44,12 @@ const DateSelectionScreen = ({ navigation, route }) => {
         }),
       };
     });
-  };
+  }, []);
 
-  const dates = useMemo(() => generateDates(), []);
-
-  const renderDateCard = (date, index) => {
-    const isSelected = selectedDate === date.id;
-
-    return (
-      <TouchableOpacity
-        key={date.id}
-        style={[
-          styles.dateCard,
-          isSelected && styles.dateCardSelected,
-        ]}
-        onPress={() => {
-          playSoundEffect(SOUND_EFFECT_KEYS.TAP);
-          setSelectedDate(date.id);
-        }}
-        activeOpacity={0.7}
-      >
-        <View style={styles.dateHeader}>
-          <Text style={[styles.dateDay, isSelected && styles.dateDaySelected]}>
-            {date.day}
-          </Text>
-          <Text style={[styles.dateNumber, isSelected && styles.dateNumberSelected]}>
-            {date.dayNumber}
-          </Text>
-          <Text style={[styles.dateMonth, isSelected && styles.dateMonthSelected]}>
-            {date.month}
-          </Text>
-        </View>
-        <View style={styles.dateIndicator}>
-          <Ionicons
-            name={isSelected ? 'radio-button-on' : 'radio-button-off'}
-            size={20}
-            color={isSelected ? '#E50914' : '#B0B0B0'}
-          />
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const selectedDateLabel = dates.find((date) => date.id === selectedDate)?.fullDate;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       <Animated.View style={headerAnimation}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -106,67 +62,93 @@ const DateSelectionScreen = ({ navigation, route }) => {
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerTextGroup}>
-            <Text style={styles.headerTitle}>Select Date</Text>
+            <Text style={styles.headerTitle}>Select Date & Time</Text>
             <Text style={styles.headerSubtitle}>{movieTitle}</Text>
           </View>
         </View>
       </Animated.View>
 
       <Animated.View style={contentAnimation}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.dateScrollView}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateScrollView}>
           <View style={styles.dateContainer}>
-            {dates.map(renderDateCard)}
+            {dates.map((date) => {
+              const isSelected = selectedDate === date.id;
+
+              return (
+                <TouchableOpacity
+                  key={date.id}
+                  style={[styles.dateCard, isSelected && styles.dateCardSelected]}
+                  onPress={() => {
+                    playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                    setSelectedDate(date.id);
+                  }}
+                >
+                  <Text style={[styles.dateDay, isSelected && styles.dateTextSelected]}>{date.day}</Text>
+                  <Text style={[styles.dateNumber, isSelected && styles.dateTextSelected]}>{date.dayNumber}</Text>
+                  <Text style={[styles.dateMonth, isSelected && styles.dateTextSelected]}>{date.month}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </ScrollView>
 
-        <View style={styles.detailsContainer}>
-          {selectedDate !== null && (
-            <View style={styles.detailsCard}>
-              <View style={styles.detailsIcon}>
-                <Ionicons name="calendar-outline" size={32} color="#E50914" />
-              </View>
-              <View style={styles.detailsContent}>
-                <Text style={styles.detailsTitle}>Selected Date</Text>
-                <Text style={styles.detailsDay}>
-                  {dates.find((d) => d.id === selectedDate)?.day || ''}
-                </Text>
-                <Text style={styles.detailsFullDate}>
-                  {dates.find((d) => d.id === selectedDate)?.fullDate || ''}
-                </Text>
-                <Text style={styles.detailsShowtime}>Showtime: {DEFAULT_SHOWTIME}</Text>
-              </View>
-            </View>
-          )}
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryEyebrow}>Venue</Text>
+          <Text style={styles.summaryTitle}>{location?.theater}</Text>
+          <Text style={styles.summaryMeta}>
+            {location?.city}, {location?.state}
+          </Text>
+          <Text style={styles.summaryPrice}>
+            Starts at {formatInr(getStartingPrice(location?.theaterDetails?.seatPricing))}
+          </Text>
+          {selectedDateLabel ? <Text style={styles.summaryDate}>{selectedDateLabel}</Text> : null}
+        </View>
+
+        <View style={styles.showtimeSection}>
+          <Text style={styles.showtimeSectionTitle}>Choose Showtime</Text>
+          <View style={styles.showtimeGrid}>
+            {showtimes.map((showtime) => {
+              const isSelected = selectedShowtime === showtime;
+
+              return (
+                <TouchableOpacity
+                  key={showtime}
+                  style={[styles.showtimeChip, isSelected && styles.showtimeChipSelected]}
+                  onPress={() => {
+                    playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                    setSelectedShowtime(showtime);
+                  }}
+                >
+                  <Text style={[styles.showtimeChipText, isSelected && styles.showtimeChipTextSelected]}>
+                    {showtime}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[
               styles.bookButton,
-              selectedDate !== null && styles.bookButtonEnabled,
-              selectedDate === null && styles.bookButtonDisabled,
+              selectedDate !== null && selectedShowtime ? styles.bookButtonEnabled : styles.bookButtonDisabled,
             ]}
-            disabled={selectedDate === null}
+            disabled={selectedDate === null || !selectedShowtime}
             onPress={() => {
-              const chosenDate = dates.find((date) => date.id === selectedDate);
               playSoundEffect(SOUND_EFFECT_KEYS.TAP);
               navigation.navigate('SeatSelection', {
                 movieId,
                 movieTitle,
+                moviePoster,
                 location,
-                selectedDate: chosenDate?.fullDate,
-                showTime: DEFAULT_SHOWTIME,
+                selectedDate: selectedDateLabel,
+                showTime: selectedShowtime,
               });
             }}
           >
-            {selectedDate !== null && (
-              <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-            )}
-            <Text style={styles.bookButtonText}>BOOK</Text>
+            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+            <Text style={styles.bookButtonText}>CONTINUE TO SEATS</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -198,7 +180,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   headerSubtitle: {
     color: '#B0B0B0',
@@ -213,126 +195,132 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   dateCard: {
-    width: 80,
-    height: 100,
+    width: 86,
+    height: 104,
     backgroundColor: '#1A1A1A',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 15,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     marginRight: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   dateCardSelected: {
     backgroundColor: '#E50914',
     borderColor: '#E50914',
   },
-  dateHeader: {
-    flex: 1,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
   dateDay: {
     color: '#B0B0B0',
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  dateDaySelected: {
-    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   dateNumber: {
     color: '#FFFFFF',
     fontSize: 28,
-    fontWeight: '700',
-  },
-  dateNumberSelected: {
-    color: '#FFFFFF',
+    fontWeight: '800',
+    marginVertical: 4,
   },
   dateMonth: {
     color: '#B0B0B0',
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  dateMonthSelected: {
-    color: '#FFFFFF',
-  },
-  dateIndicator: {
-    marginBottom: 8,
-  },
-  detailsContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  detailsCard: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  detailsIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(229, 9, 20, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  detailsContent: {
-    flex: 1,
-  },
-  detailsTitle: {
-    color: '#B0B0B0',
     fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontWeight: '700',
   },
-  detailsDay: {
+  dateTextSelected: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
-  detailsFullDate: {
-    color: '#B0B0B0',
-    fontSize: 13,
-    marginTop: 2,
+  summaryCard: {
+    marginHorizontal: 20,
+    marginTop: 18,
+    backgroundColor: '#151515',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  detailsShowtime: {
+  summaryEyebrow: {
     color: '#E50914',
-    fontSize: 13,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  summaryTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  summaryMeta: {
+    color: '#A0A0A8',
     marginTop: 6,
-    fontWeight: '600',
+  },
+  summaryPrice: {
+    color: '#FFFFFF',
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  summaryDate: {
+    color: '#CFCFD3',
+    marginTop: 10,
+    lineHeight: 20,
+  },
+  showtimeSection: {
+    paddingHorizontal: 20,
+    paddingTop: 22,
+  },
+  showtimeSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 14,
+  },
+  showtimeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  showtimeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  showtimeChipSelected: {
+    backgroundColor: '#E50914',
+    borderColor: '#E50914',
+  },
+  showtimeChipText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  showtimeChipTextSelected: {
+    color: '#FFFFFF',
   },
   buttonContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingTop: 30,
+    paddingBottom: 30,
   },
   bookButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E50914',
     paddingVertical: 16,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E50914',
+    borderRadius: 14,
   },
   bookButtonEnabled: {
     backgroundColor: '#E50914',
-    borderColor: '#E50914',
   },
   bookButtonDisabled: {
-    backgroundColor: 'rgba(229, 9, 20, 0.3)',
-    borderColor: 'rgba(229, 9, 20, 0.5)',
+    backgroundColor: '#353535',
   },
   bookButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     marginLeft: 10,
   },
 });

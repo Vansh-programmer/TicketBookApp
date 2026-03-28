@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Animated,
   ScrollView,
@@ -10,80 +10,99 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import DropdownField from '../components/DropdownField';
 import useFadeInUp from '../hooks/useFadeInUp';
+import { playSoundEffect, SOUND_EFFECT_KEYS } from '../services/soundEffects';
 import {
-  playSoundEffect,
-  SOUND_EFFECT_KEYS,
-} from '../services/soundEffects';
-
-const LOCATION_OPTIONS = [
-  {
-    state: 'California',
-    cities: {
-      'Los Angeles': ['Cinema 1', 'Cinema 4', 'Cinema 7'],
-      'San Diego': ['Cinema 8', 'Cinema 12'],
-      'San Francisco': ['Cinema 14', 'Cinema 16'],
-    },
-  },
-  {
-    state: 'Texas',
-    cities: {
-      Houston: ['Cinema 2', 'Cinema 5', 'Cinema 9'],
-      Dallas: ['Cinema 11', 'Cinema 15'],
-      Austin: ['Cinema 18', 'Cinema 19'],
-    },
-  },
-  {
-    state: 'New York',
-    cities: {
-      'New York City': ['Cinema 3', 'Cinema 6', 'Cinema 10'],
-      Buffalo: ['Cinema 20', 'Cinema 21'],
-      Albany: ['Cinema 22', 'Cinema 23'],
-    },
-  },
-  {
-    state: 'Florida',
-    cities: {
-      Miami: ['Cinema 13', 'Cinema 17'],
-      Orlando: ['Cinema 24', 'Cinema 25'],
-      Tampa: ['Cinema 26', 'Cinema 27'],
-    },
-  },
-];
-
-const getStateConfig = (selectedState) =>
-  LOCATION_OPTIONS.find((location) => location.state === selectedState) || LOCATION_OPTIONS[0];
+  formatInr,
+  getStartingPrice,
+  getStateConfig,
+  getTheaterBySelection,
+  INDIAN_LOCATION_OPTIONS,
+} from '../services/bookingCatalog';
+import {
+  mergeIndianLocationOptions,
+  subscribeToAdminTheaters,
+} from '../services/adminCatalog';
 
 const LocationSelectionScreen = ({ navigation, route }) => {
-  const { movieTitle = 'Selected Movie', movieId } = route.params ?? {};
-  const [selectedState, setSelectedState] = useState(LOCATION_OPTIONS[0].state);
-  const initialStateConfig = LOCATION_OPTIONS[0];
+  const { movieTitle = 'Selected Movie', movieId, moviePoster = null } = route.params ?? {};
+  const [locationOptions, setLocationOptions] = useState(INDIAN_LOCATION_OPTIONS);
+  const [selectedState, setSelectedState] = useState(INDIAN_LOCATION_OPTIONS[0].state);
+  const initialStateConfig = INDIAN_LOCATION_OPTIONS[0];
   const initialCity = Object.keys(initialStateConfig.cities)[0];
   const [selectedCity, setSelectedCity] = useState(initialCity);
-  const [selectedTheater, setSelectedTheater] = useState(initialStateConfig.cities[initialCity][0]);
+  const [selectedTheater, setSelectedTheater] = useState(initialStateConfig.cities[initialCity][0].name);
 
   const headerAnimation = useFadeInUp({ delay: 0 });
   const selectorsAnimation = useFadeInUp({ delay: 90 });
   const summaryAnimation = useFadeInUp({ delay: 180 });
 
+  useEffect(() => {
+    const unsubscribe = subscribeToAdminTheaters(
+      (theaters) => {
+        setLocationOptions(mergeIndianLocationOptions(INDIAN_LOCATION_OPTIONS, theaters));
+      },
+      (error) => {
+        console.error('Unable to sync admin theatres:', error);
+        setLocationOptions(INDIAN_LOCATION_OPTIONS);
+      },
+    );
+
+    return unsubscribe;
+  }, []);
+
   const selectedStateConfig = useMemo(
-    () => getStateConfig(selectedState),
-    [selectedState],
+    () => getStateConfig(selectedState, locationOptions),
+    [locationOptions, selectedState],
   );
-
-  const cityOptions = useMemo(
-    () => Object.keys(selectedStateConfig.cities),
-    [selectedStateConfig],
-  );
-
+  const cityOptions = useMemo(() => Object.keys(selectedStateConfig.cities), [selectedStateConfig]);
   const theaterOptions = useMemo(
-    () => selectedStateConfig.cities[selectedCity] || [],
+    () => (selectedStateConfig.cities[selectedCity] || []).map((theater) => theater.name),
     [selectedCity, selectedStateConfig],
   );
+  const selectedTheaterDetails = useMemo(
+    () =>
+      getTheaterBySelection({
+        state: selectedState,
+        city: selectedCity,
+        theaterName: selectedTheater,
+        options: locationOptions,
+      }),
+    [locationOptions, selectedCity, selectedState, selectedTheater],
+  );
+
+  useEffect(() => {
+    if (!locationOptions.length) {
+      return;
+    }
+
+    const fallbackState = getStateConfig(selectedState, locationOptions) || locationOptions[0];
+    const nextState = fallbackState?.state || locationOptions[0].state;
+    const nextCityOptions = Object.keys(fallbackState?.cities || {});
+    const nextCity = nextCityOptions.includes(selectedCity)
+      ? selectedCity
+      : nextCityOptions[0];
+    const nextTheaterOptions = (fallbackState?.cities?.[nextCity] || []).map((theater) => theater.name);
+    const nextTheater = nextTheaterOptions.includes(selectedTheater)
+      ? selectedTheater
+      : nextTheaterOptions[0];
+
+    if (nextState !== selectedState) {
+      setSelectedState(nextState);
+    }
+
+    if (nextCity && nextCity !== selectedCity) {
+      setSelectedCity(nextCity);
+    }
+
+    if (nextTheater && nextTheater !== selectedTheater) {
+      setSelectedTheater(nextTheater);
+    }
+  }, [locationOptions, selectedCity, selectedState, selectedTheater]);
 
   const handleStateSelect = (nextState) => {
-    const nextStateConfig = getStateConfig(nextState);
+    const nextStateConfig = getStateConfig(nextState, locationOptions);
     const nextCity = Object.keys(nextStateConfig.cities)[0];
-    const nextTheater = nextStateConfig.cities[nextCity][0];
+    const nextTheater = nextStateConfig.cities[nextCity][0].name;
 
     setSelectedState(nextState);
     setSelectedCity(nextCity);
@@ -92,7 +111,7 @@ const LocationSelectionScreen = ({ navigation, route }) => {
 
   const handleCitySelect = (nextCity) => {
     setSelectedCity(nextCity);
-    setSelectedTheater(selectedStateConfig.cities[nextCity][0]);
+    setSelectedTheater(selectedStateConfig.cities[nextCity][0].name);
   };
 
   const handleProceed = () => {
@@ -100,20 +119,18 @@ const LocationSelectionScreen = ({ navigation, route }) => {
     navigation.navigate('DateSelection', {
       movieId,
       movieTitle,
+      moviePoster,
       location: {
         state: selectedState,
         city: selectedCity,
         theater: selectedTheater,
+        theaterDetails: selectedTheaterDetails,
       },
     });
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       <Animated.View style={headerAnimation}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -126,7 +143,7 @@ const LocationSelectionScreen = ({ navigation, route }) => {
         </View>
 
         <Text style={styles.helperText}>
-          Pick a state, city, and cinema hall from the dropdown menus below.
+          Browse premium Indian cinemas, then lock in the city, theatre, and experience you want.
         </Text>
       </Animated.View>
 
@@ -136,7 +153,7 @@ const LocationSelectionScreen = ({ navigation, route }) => {
             icon="flag-outline"
             label="State"
             value={selectedState}
-            options={LOCATION_OPTIONS.map((location) => location.state)}
+            options={locationOptions.map((location) => location.state)}
             onChange={handleStateSelect}
           />
         </View>
@@ -163,20 +180,32 @@ const LocationSelectionScreen = ({ navigation, route }) => {
       </Animated.View>
 
       <Animated.View style={[styles.summaryCard, summaryAnimation]}>
-        <Text style={styles.summaryTitle}>Current Selection</Text>
-        <Text style={styles.summaryText}>
-          {selectedState} • {selectedCity} • {selectedTheater}
+        <Text style={styles.summaryEyebrow}>Tonight's Pick</Text>
+        <Text style={styles.summaryTitle}>{selectedTheater}</Text>
+        <Text style={styles.summaryMeta}>
+          {selectedCity}, {selectedState}
+          {selectedTheaterDetails?.area ? ` • ${selectedTheaterDetails.area}` : ''}
+        </Text>
+
+        <View style={styles.summaryPills}>
+          {(selectedTheaterDetails?.formats || []).map((format) => (
+            <View key={format} style={styles.summaryPill}>
+              <Text style={styles.summaryPillText}>{format}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.summaryDescription}>{selectedTheaterDetails?.experience}</Text>
+        <Text style={styles.summaryPrice}>
+          Tickets from {formatInr(getStartingPrice(selectedTheaterDetails?.seatPricing))}
         </Text>
       </Animated.View>
 
       <Animated.View style={summaryAnimation}>
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.selectButton, styles.selectButtonEnabled]}
-            onPress={handleProceed}
-          >
+          <TouchableOpacity style={styles.selectButton} onPress={handleProceed}>
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-            <Text style={styles.selectButtonText}>SELECT</Text>
+            <Text style={styles.selectButtonText}>CONTINUE TO SHOWTIMES</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -208,7 +237,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   headerSubtitle: {
     color: '#B0B0B0',
@@ -218,6 +247,7 @@ const styles = StyleSheet.create({
   helperText: {
     color: '#B0B0B0',
     fontSize: 13,
+    lineHeight: 20,
     paddingHorizontal: 20,
     marginBottom: 12,
   },
@@ -232,22 +262,56 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginHorizontal: 20,
     backgroundColor: '#141414',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 18,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  summaryTitle: {
-    color: '#B0B0B0',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 6,
+  summaryEyebrow: {
+    color: '#E50914',
+    fontSize: 11,
+    fontWeight: '800',
     textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
-  summaryText: {
+  summaryTitle: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  summaryMeta: {
+    color: '#9E9EA4',
+    marginTop: 6,
+    fontSize: 13,
+  },
+  summaryPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  summaryPill: {
+    backgroundColor: 'rgba(229, 9, 20, 0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  summaryPillText: {
+    color: '#FF8585',
+    fontSize: 11,
     fontWeight: '700',
+  },
+  summaryDescription: {
+    color: '#D1D1D5',
+    marginTop: 12,
+    lineHeight: 20,
+  },
+  summaryPrice: {
+    color: '#FFFFFF',
+    marginTop: 14,
+    fontWeight: '800',
+    fontSize: 17,
   },
   buttonContainer: {
     paddingHorizontal: 20,
@@ -258,20 +322,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E50914',
-  },
-  selectButtonEnabled: {
+    borderRadius: 14,
     backgroundColor: '#E50914',
-    borderColor: '#E50914',
   },
   selectButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     marginLeft: 10,
+    fontSize: 14,
   },
 });
 

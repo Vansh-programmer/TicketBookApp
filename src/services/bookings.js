@@ -21,6 +21,7 @@ export const reserveSeatsAndCreateBooking = async ({
   userId,
   movieId,
   movieTitle,
+  moviePoster,
   date,
   time,
   theater,
@@ -28,6 +29,8 @@ export const reserveSeatsAndCreateBooking = async ({
   state,
   seats,
   showingId,
+  priceDetails,
+  theaterFormats,
 }) => {
   if (!db) {
     const error = new Error('Firebase is not configured for this build.');
@@ -78,6 +81,7 @@ export const reserveSeatsAndCreateBooking = async ({
       userId,
       movieId,
       movieTitle,
+      moviePoster: moviePoster || null,
       date,
       time,
       theater,
@@ -85,6 +89,8 @@ export const reserveSeatsAndCreateBooking = async ({
       state,
       seats,
       showingId,
+      priceDetails: priceDetails || null,
+      theaterFormats: theaterFormats || [],
       ticketId,
       showDateValue: parseShowDateValue(date),
       createdAt: serverTimestamp(),

@@ -43,6 +43,18 @@ export const fetchTopRated = (page = 1) =>
 export const fetchPopular = (page = 1) =>
   request('/movie/popular', { page });
 
+export const discoverMovies = (params = {}) =>
+  request('/discover/movie', params);
+
+export const fetchIndianCinema = (page = 1) =>
+  discoverMovies({
+    page,
+    region: 'IN',
+    sort_by: 'popularity.desc',
+    with_origin_country: 'IN',
+    include_adult: false,
+  });
+
 export const fetchMovieDetails = (movieId, includeVideos = false) =>
   request(`/movie/${movieId}`, {
     append_to_response: includeVideos ? 'videos' : undefined,
@@ -76,6 +88,8 @@ export default {
   fetchUpcoming,
   fetchTopRated,
   fetchPopular,
+  fetchIndianCinema,
+  discoverMovies,
   fetchMovieDetails,
   fetchMovieCast,
   fetchMovieVideos,

@@ -6,6 +6,7 @@ import {
   getReactNativePersistence,
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -36,6 +37,7 @@ const app = isFirebaseConfigured
 
 let auth;
 let db;
+let storage;
 
 if (app) {
   try {
@@ -47,6 +49,7 @@ if (app) {
   }
 
   db = getFirestore(app);
+  storage = getStorage(app);
 }
 
-export { app, auth, db };
+export { app, auth, db, storage };

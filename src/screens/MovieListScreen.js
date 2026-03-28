@@ -6,16 +6,28 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchNowPlaying, fetchUpcoming, getImageUrl } from '../services/tmdb';
+import {
+  fetchIndianCinema,
+  fetchNowPlaying,
+  fetchPopular,
+  fetchUpcoming,
+  getImageUrl,
+} from '../services/tmdb';
 
 const MovieListScreen = ({ route, navigation }) => {
   const { section = 'now_playing' } = route.params ?? {};
+  const { width } = useWindowDimensions();
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const numColumns = width >= 940 ? 4 : width >= 680 ? 3 : 2;
+  const horizontalPadding = 32;
+  const cardGap = 12;
+  const itemWidth = (width - horizontalPadding - cardGap * (numColumns - 1)) / numColumns;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -23,8 +35,17 @@ const MovieListScreen = ({ route, navigation }) => {
       setError('');
 
       try {
-        const moviesData =
-          section === 'now_playing' ? await fetchNowPlaying() : await fetchUpcoming();
+        let moviesData;
+
+        if (section === 'now_playing') {
+          moviesData = await fetchNowPlaying();
+        } else if (section === 'upcoming') {
+          moviesData = await fetchUpcoming();
+        } else if (section === 'popular') {
+          moviesData = await fetchPopular();
+        } else {
+          moviesData = await fetchIndianCinema();
+        }
         setMovies((moviesData.results || []).filter((movie) => movie.backdrop_path || movie.poster_path));
       } catch (fetchError) {
         console.error('Error fetching movies:', fetchError);
@@ -38,7 +59,12 @@ const MovieListScreen = ({ route, navigation }) => {
   }, [section]);
 
   const screenTitle = useMemo(
-    () => (section === 'now_playing' ? 'Now Playing' : 'Upcoming Movies'),
+    () => ({
+      now_playing: 'Now Playing',
+      upcoming: 'Upcoming Movies',
+      popular: 'Popular on TicketBook',
+      indian_spotlight: 'Indian Spotlight',
+    }[section] || 'Movie Collection'),
     [section],
   );
 
@@ -50,7 +76,7 @@ const MovieListScreen = ({ route, navigation }) => {
 
     return (
       <TouchableOpacity
-        style={styles.movieItem}
+        style={[styles.movieItem, { width: itemWidth }]}
         onPress={() => navigation.navigate('MovieDetails', { movieId: item.id })}
         activeOpacity={0.85}
       >
@@ -95,12 +121,13 @@ const MovieListScreen = ({ route, navigation }) => {
         </View>
       ) : (
         <FlatList
+          key={numColumns}
           data={movies}
           renderItem={renderMovie}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
+          numColumns={numColumns}
+          columnWrapperStyle={numColumns > 1 ? styles.row : undefined}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -142,10 +169,9 @@ const styles = StyleSheet.create({
   },
   row: {
     justifyContent: 'space-between',
+    marginBottom: 16,
   },
   movieItem: {
-    width: '48%',
-    marginBottom: 16,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#141414',

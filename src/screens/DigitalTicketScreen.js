@@ -1,52 +1,43 @@
 import React, { useEffect } from 'react';
 import {
   Animated,
+  Image,
   ScrollView,
-  View,
-  Text,
   StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useToast } from '../components/ToastProvider';
 import useFadeInUp from '../hooks/useFadeInUp';
-import {
-  playSoundEffect,
-  SOUND_EFFECT_KEYS,
-} from '../services/soundEffects';
+import { formatInr } from '../services/bookingCatalog';
+import { playSoundEffect, SOUND_EFFECT_KEYS } from '../services/soundEffects';
 
 const DigitalTicketScreen = ({ navigation, route }) => {
   const {
     movieTitle,
+    moviePoster,
     location,
     selectedDate,
     showTime = '7:30 PM',
     seats = [],
     showingId,
     ticketId,
+    pricing,
+    theaterDetails,
   } = route.params ?? {};
   const contentAnimation = useFadeInUp({ delay: 0 });
   const { showToast } = useToast();
-  const ticketData = {
-    event: movieTitle || 'Movie Reservation',
-    theater: location?.theater || 'Downtown Cinema 1',
-    date: selectedDate || 'Date to be confirmed',
-    time: showTime,
-    row: seats[0]?.charAt(0) || 'G',
-    seat: seats.length ? seats.join(', ') : '12-14',
-    price: `$${(Math.max(seats.length, 1) * 15).toFixed(2)}`,
-  };
 
   useEffect(() => {
     playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS);
   }, []);
 
+  const totalPrice = pricing?.formattedTotal || formatInr(seats.length * 250);
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       <Animated.View style={contentAnimation}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -58,74 +49,71 @@ const DigitalTicketScreen = ({ navigation, route }) => {
           >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Your Reservation</Text>
+          <Text style={styles.headerTitle}>Your Ticket</Text>
         </View>
 
         <View style={styles.successContainer}>
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={50} color="#00C853" />
           </View>
-          <Text style={styles.successMessage}>Your Reservation has been made!</Text>
+          <Text style={styles.successMessage}>Booking Confirmed</Text>
           <Text style={styles.successSubtext}>
-            {location?.city ? `${location.city}, ${location.state}` : 'A confirmation email has been sent to your inbox'}
+            {location?.city ? `${location.city}, ${location.state}` : 'Your seats are locked in'}
           </Text>
         </View>
 
         <View style={styles.ticketContainer}>
-          <View style={styles.ticketHeader}>
-            <View style={styles.theaterBadge}>
-              <Ionicons name="business" size={16} color="#E50914" />
-              <Text style={styles.theaterBadgeText}>{ticketData.theater}</Text>
+          <View style={styles.ticketTop}>
+            {moviePoster ? <Image source={{ uri: moviePoster }} style={styles.posterImage} /> : null}
+            <Text style={styles.ticketEyebrow}>Digital Pass</Text>
+            <Text style={styles.movieTitle}>{movieTitle}</Text>
+            <Text style={styles.theaterText}>{location?.theater}</Text>
+
+            <View style={styles.formatRow}>
+              {(theaterDetails?.formats || []).map((format) => (
+                <View key={format} style={styles.formatPill}>
+                  <Text style={styles.formatPillText}>{format}</Text>
+                </View>
+              ))}
             </View>
           </View>
 
           <View style={styles.ticketBody}>
-            <Text style={styles.eventTitle}>{ticketData.event}</Text>
-
-            <View style={styles.detailsGrid}>
-              <View style={styles.detailItem}>
-                <Ionicons name="calendar" size={18} color="#000000" />
-                <Text style={styles.detailValue}>{ticketData.date}</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Ionicons name="time" size={18} color="#000000" />
-                <Text style={styles.detailValue}>{ticketData.time}</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Ionicons name="tv" size={18} color="#000000" />
-                <Text style={styles.detailValue}>Row {ticketData.row}, Seat {ticketData.seat}</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Ionicons name="pricetag" size={18} color="#000000" />
-                <Text style={styles.detailValue}>{ticketData.price}</Text>
-              </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Date</Text>
+              <Text style={styles.detailValue}>{selectedDate}</Text>
             </View>
-
-            <View style={styles.barcodeContainer}>
-              <View style={styles.barcode}>
-                {[...Array(20)].map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.barcodeLine,
-                      {
-                        width: i % 3 === 0 ? 6 : 2,
-                        marginLeft: i % 2 === 0 ? 0 : 1,
-                        marginRight: i % 2 === 0 ? 0 : 1,
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-              <Text style={styles.barcodeText}>Scan at entrance</Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Time</Text>
+              <Text style={styles.detailValue}>{showTime}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Seats</Text>
+              <Text style={styles.detailValue}>{seats.join(', ')}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Total</Text>
+              <Text style={styles.detailPrice}>{totalPrice}</Text>
             </View>
           </View>
 
+          <View style={styles.barcodeContainer}>
+            {[...Array(24)].map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.barcodeLine,
+                  { width: index % 3 === 0 ? 5 : 2 },
+                ]}
+              />
+            ))}
+          </View>
+
           <View style={styles.ticketFooter}>
-            <Ionicons name="qr-code" size={60} color="#000000" />
-            <Text style={styles.footerText}>
-              Ticket ID: {ticketId || (showingId ? showingId.slice(0, 18).toUpperCase() : `RES-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`)}
+            <Text style={styles.ticketId}>
+              Ticket ID: {ticketId || (showingId ? showingId.slice(0, 18).toUpperCase() : 'TKT-PREVIEW')}
             </Text>
+            <Text style={styles.footerNote}>Show this ticket at the entrance gate</Text>
           </View>
         </View>
 
@@ -137,7 +125,7 @@ const DigitalTicketScreen = ({ navigation, route }) => {
               showToast('PDF export can be connected when you are ready.', { type: 'info' });
             }}
           >
-            <Ionicons name="download" size={18} color="#000000" />
+            <Ionicons name="download" size={18} color="#050505" />
             <Text style={styles.downloadButtonText}>Download PDF</Text>
           </TouchableOpacity>
         </View>
@@ -156,7 +144,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingTop: 58,
+    paddingBottom: 15,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -166,11 +155,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   successContainer: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 24,
     paddingHorizontal: 20,
   },
   successIcon: {
@@ -184,10 +173,9 @@ const styles = StyleSheet.create({
   },
   successMessage: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '800',
     marginBottom: 8,
-    textAlign: 'center',
   },
   successSubtext: {
     color: '#B0B0B0',
@@ -195,114 +183,114 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   ticketContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginBottom: 40,
+    marginHorizontal: 20,
+    backgroundColor: '#F8F2E8',
+    borderRadius: 24,
     overflow: 'hidden',
-    maxWidth: 320,
-    alignSelf: 'center',
     borderWidth: 2,
     borderColor: '#E50914',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
   },
-  ticketHeader: {
-    backgroundColor: '#1A1A1A',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 2,
-    borderBottomColor: '#E50914',
+  ticketTop: {
+    padding: 22,
+    backgroundColor: '#111111',
   },
-  theaterBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(229, 9, 20, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    alignSelf: 'center',
+  posterImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 18,
+    marginBottom: 16,
   },
-  theaterBadgeText: {
+  ticketEyebrow: {
     color: '#E50914',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
+  movieTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '800',
+    marginTop: 10,
+  },
+  theaterText: {
+    color: '#D6D6D9',
+    marginTop: 8,
+  },
+  formatRow: {
+    marginTop: 14,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  formatPill: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  formatPillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   ticketBody: {
-    padding: 24,
+    padding: 22,
   },
-  eventTitle: {
-    color: '#000000',
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 20,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-  },
-  detailsGrid: {
+  detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  detailItem: {
-    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 8,
-    marginHorizontal: 2,
+    marginBottom: 14,
+  },
+  detailLabel: {
+    color: '#5E5348',
+    fontWeight: '700',
   },
   detailValue: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 4,
-    textAlign: 'center',
+    color: '#111111',
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: 20,
+  },
+  detailPrice: {
+    color: '#E50914',
+    fontWeight: '800',
+    fontSize: 18,
   },
   barcodeContainer: {
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  barcode: {
-    height: 40,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 4,
-    marginBottom: 8,
+    height: 44,
+    marginHorizontal: 22,
+    marginBottom: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
   },
   barcodeLine: {
     height: '100%',
-    backgroundColor: '#000000',
-    flex: 1,
-    minHeight: 2,
-  },
-  barcodeText: {
-    color: '#000000',
-    fontSize: 12,
-    fontWeight: '500',
+    backgroundColor: '#111111',
   },
   ticketFooter: {
     padding: 20,
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#EFE4D4',
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: 'rgba(0,0,0,0.08)',
   },
-  footerText: {
-    color: '#000000',
-    fontSize: 11,
-    marginTop: 8,
+  ticketId: {
+    color: '#111111',
+    fontWeight: '800',
     textAlign: 'center',
+  },
+  footerNote: {
+    color: '#5E5348',
+    textAlign: 'center',
+    marginTop: 8,
   },
   buttonContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingTop: 24,
   },
   downloadButton: {
     flexDirection: 'row',
@@ -310,23 +298,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     paddingVertical: 16,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#000000',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+    borderRadius: 14,
   },
   downloadButtonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#050505',
+    fontWeight: '800',
     marginLeft: 10,
   },
 });

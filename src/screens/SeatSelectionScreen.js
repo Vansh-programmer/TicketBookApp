@@ -11,17 +11,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { auth, firebaseConfigError } from '../config/firebase';
 import { useToast } from '../components/ToastProvider';
 import {
+  calculateBookingPrice,
+  formatInr,
+  getSeatTier,
+  getTierLegend,
+} from '../services/bookingCatalog';
+import {
   getBookingErrorMessage,
   reserveSeatsAndCreateBooking,
 } from '../services/bookings';
-import {
-  playSoundEffect,
-  SOUND_EFFECT_KEYS,
-} from '../services/soundEffects';
-import {
-  buildShowingId,
-  subscribeToShowing,
-} from '../services/showings';
+import { playSoundEffect, SOUND_EFFECT_KEYS } from '../services/soundEffects';
+import { buildShowingId, subscribeToShowing } from '../services/showings';
 
 const ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const SEATS_PER_ROW = 8;
@@ -38,10 +38,18 @@ const SeatSelectionScreen = ({ navigation, route }) => {
   const {
     movieId,
     movieTitle = 'Selected Movie',
+    moviePoster = null,
     location,
     selectedDate,
     showTime = '7:30 PM',
   } = route.params ?? {};
+
+  const seatPricing = location?.theaterDetails?.seatPricing || {};
+  const priceDetails = useMemo(
+    () => calculateBookingPrice(selectedSeats, seatPricing),
+    [seatPricing, selectedSeats],
+  );
+  const tierLegend = useMemo(() => getTierLegend(seatPricing), [seatPricing]);
 
   const showingId = useMemo(
     () =>
@@ -57,16 +65,10 @@ const SeatSelectionScreen = ({ navigation, route }) => {
   const seats = useMemo(
     () =>
       ROW_LABELS.flatMap((rowLabel) =>
-        Array.from({ length: SEATS_PER_ROW }, (_, index) => {
-          const seatNumber = index + 1;
-          const seatId = `${rowLabel}${seatNumber}`;
-
-          return {
-            id: seatId,
-            rowLabel,
-            seatNumber,
-          };
-        }),
+        Array.from({ length: SEATS_PER_ROW }, (_, index) => ({
+          id: `${rowLabel}${index + 1}`,
+          rowLabel,
+        })),
       ),
     [],
   );
@@ -88,14 +90,11 @@ const SeatSelectionScreen = ({ navigation, route }) => {
       showingId,
       (showing) => {
         setBookedSeats(showing.bookedSeats);
-        setSelectedSeats((current) =>
-          current.filter((seatId) => !showing.bookedSeats.includes(seatId)),
-        );
+        setSelectedSeats((current) => current.filter((seatId) => !showing.bookedSeats.includes(seatId)));
         setScreenError('');
         setLoadingSeats(false);
       },
-      (error) => {
-        console.error('Error subscribing to showing:', error);
+      () => {
         setScreenError('Unable to load live seat status right now.');
         setLoadingSeats(false);
       },
@@ -117,9 +116,10 @@ const SeatSelectionScreen = ({ navigation, route }) => {
     }
 
     if (selectedSeats.length >= MAX_SELECTED_SEATS) {
-      setScreenError(`You can select up to ${MAX_SELECTED_SEATS} seats per booking.`);
+      const message = `You can select up to ${MAX_SELECTED_SEATS} seats per booking.`;
+      setScreenError(message);
       playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
-      showToast(`You can select up to ${MAX_SELECTED_SEATS} seats per booking.`, { type: 'error' });
+      showToast(message, { type: 'error' });
       return;
     }
 
@@ -135,9 +135,9 @@ const SeatSelectionScreen = ({ navigation, route }) => {
     const user = auth?.currentUser;
 
     if (!user) {
-      setScreenError('Please sign in again before booking your seats.');
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
-      showToast('Please sign in again before booking your seats.', { type: 'error' });
+      const message = 'Please sign in again before booking your seats.';
+      setScreenError(message);
+      showToast(message, { type: 'error' });
       navigation.replace('Login');
       return;
     }
@@ -150,6 +150,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
         userId: user.uid,
         movieId,
         movieTitle,
+        moviePoster,
         date: selectedDate,
         time: showTime,
         theater: location?.theater,
@@ -157,6 +158,8 @@ const SeatSelectionScreen = ({ navigation, route }) => {
         state: location?.state,
         seats: selectedSeats,
         showingId,
+        priceDetails,
+        theaterFormats: location?.theaterDetails?.formats || [],
       });
 
       playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS);
@@ -164,6 +167,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
       navigation.navigate('DigitalTicket', {
         movieId,
         movieTitle,
+        moviePoster,
         location,
         selectedDate,
         showTime,
@@ -171,9 +175,10 @@ const SeatSelectionScreen = ({ navigation, route }) => {
         showingId,
         ticketId: booking.ticketId,
         bookingId: booking.bookingId,
+        pricing: priceDetails,
+        theaterDetails: location?.theaterDetails,
       });
     } catch (error) {
-      console.error('Error booking seats:', error);
       const errorMessage = getBookingErrorMessage(error);
       setScreenError(errorMessage);
       playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
@@ -182,88 +187,6 @@ const SeatSelectionScreen = ({ navigation, route }) => {
       setBookingInProgress(false);
     }
   };
-
-  const renderScreen = () => (
-    <View style={styles.screen}>
-      <View style={styles.screenContainer}>
-        <View style={styles.screenLine} />
-      </View>
-    </View>
-  );
-
-  const renderSeatGrid = () => (
-    <View style={styles.seatContainer}>
-      <ScrollView
-        contentContainerStyle={styles.gridScroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {seats.map((seat) => {
-          const isBooked = bookedSeats.includes(seat.id);
-          const isSelected = selectedSeats.includes(seat.id);
-
-          return (
-            <TouchableOpacity
-              key={seat.id}
-              style={[
-                styles.seat,
-                isBooked && styles.seatBooked,
-                isSelected && styles.seatSelected,
-              ]}
-              onPress={() => handleSeatTap(seat.id)}
-              disabled={isBooked || loadingSeats || bookingInProgress}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={isBooked ? 'tv-outline' : 'tv'}
-                size={20}
-                color={isBooked ? 'rgba(255, 255, 255, 0.25)' : isSelected ? '#FFFFFF' : '#050505'}
-              />
-              <Text
-                style={[
-                  styles.seatLabel,
-                  isBooked && styles.seatLabelBooked,
-                  isSelected && styles.seatLabelSelected,
-                ]}
-              >
-                {seat.id}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-
-  const renderLegend = () => (
-    <View style={styles.legendContainer}>
-      <View style={styles.legendItem}>
-        <View style={[styles.legendSwatch, styles.legendAvailable]} />
-        <Text style={styles.legendText}>Available</Text>
-      </View>
-      <View style={styles.legendItem}>
-        <View style={[styles.legendSwatch, styles.legendSelected]} />
-        <Text style={styles.legendText}>Selected</Text>
-      </View>
-      <View style={styles.legendItem}>
-        <View style={[styles.legendSwatch, styles.legendBooked]} />
-        <Text style={styles.legendText}>Booked</Text>
-      </View>
-    </View>
-  );
-
-  const renderSummary = () => (
-    <View style={styles.summaryContainer}>
-      <Text style={styles.summaryTitle}>
-        {selectedSeats.length} {selectedSeats.length === 1 ? 'Seat' : 'Seats'} Selected
-      </Text>
-      <Text style={styles.summarySubtitle}>
-        {selectedSeats.length > 0 ? selectedSeats.join(', ') : `Select up to ${MAX_SELECTED_SEATS} seats`}
-      </Text>
-      <Text style={styles.summaryMeta}>
-        Showing: {showTime} • {location?.theater || 'Theater not selected'}
-      </Text>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -278,20 +201,29 @@ const SeatSelectionScreen = ({ navigation, route }) => {
           <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTextGroup}>
-          <Text style={styles.headerTitle}>Select Seats</Text>
+          <Text style={styles.headerTitle}>Choose Seats</Text>
           <Text style={styles.headerSubtitle}>
             {movieTitle}
-            {selectedDate ? ` • ${selectedDate}` : ''}
+            {selectedDate ? ` • ${showTime}` : ''}
           </Text>
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {renderScreen()}
-        {renderLegend()}
+      <ScrollView contentContainerStyle={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.screen}>
+          <View style={styles.screenLine} />
+          <Text style={styles.screenLabel}>SCREEN THIS WAY</Text>
+        </View>
+
+        <View style={styles.legendContainer}>
+          {tierLegend.map((tier) => (
+            <View key={tier.tier} style={styles.legendTierCard}>
+              <Text style={styles.legendTierName}>{tier.tier}</Text>
+              <Text style={styles.legendTierMeta}>Rows {tier.rows}</Text>
+              <Text style={styles.legendTierPrice}>{tier.price}</Text>
+            </View>
+          ))}
+        </View>
 
         {loadingSeats ? (
           <View style={styles.loadingCard}>
@@ -299,7 +231,38 @@ const SeatSelectionScreen = ({ navigation, route }) => {
             <Text style={styles.loadingText}>Loading live seat availability...</Text>
           </View>
         ) : (
-          renderSeatGrid()
+          <View style={styles.seatContainer}>
+            {seats.map((seat) => {
+              const isBooked = bookedSeats.includes(seat.id);
+              const isSelected = selectedSeats.includes(seat.id);
+              const tier = getSeatTier(seat.id);
+
+              return (
+                <TouchableOpacity
+                  key={seat.id}
+                  style={[
+                    styles.seat,
+                    isBooked && styles.seatBooked,
+                    isSelected && styles.seatSelected,
+                    tier === 'Luxe' && styles.seatLuxe,
+                    tier === 'Prime' && styles.seatPrime,
+                  ]}
+                  onPress={() => handleSeatTap(seat.id)}
+                  disabled={isBooked || bookingInProgress}
+                >
+                  <Text
+                    style={[
+                      styles.seatLabel,
+                      isBooked && styles.seatLabelBooked,
+                      isSelected && styles.seatLabelSelected,
+                    ]}
+                  >
+                    {seat.id}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         )}
 
         {screenError ? (
@@ -309,16 +272,30 @@ const SeatSelectionScreen = ({ navigation, route }) => {
           </View>
         ) : null}
 
-        {renderSummary()}
+        <View style={styles.summaryContainer}>
+          <Text style={styles.summaryTitle}>
+            {selectedSeats.length} {selectedSeats.length === 1 ? 'Seat' : 'Seats'} Selected
+          </Text>
+          <Text style={styles.summarySubtitle}>
+            {selectedSeats.length > 0 ? selectedSeats.join(', ') : `Select up to ${MAX_SELECTED_SEATS} seats`}
+          </Text>
+          <Text style={styles.summaryMeta}>
+            {location?.theater} • {location?.city}
+          </Text>
+          <Text style={styles.summaryPrice}>{priceDetails.formattedTotal}</Text>
+          {selectedSeats.length > 0 ? (
+            <Text style={styles.summaryBreakdown}>
+              {priceDetails.items.map((item) => `${item.seatId} (${item.tier})`).join(' • ')}
+            </Text>
+          ) : null}
+        </View>
       </ScrollView>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[
             styles.proceedButton,
-            selectedSeats.length > 0 && !loadingSeats
-              ? styles.proceedButtonEnabled
-              : styles.proceedButtonDisabled,
+            selectedSeats.length > 0 && !loadingSeats ? styles.proceedButtonEnabled : styles.proceedButtonDisabled,
           ]}
           disabled={selectedSeats.length === 0 || loadingSeats || bookingInProgress}
           onPress={handleProceed}
@@ -327,12 +304,10 @@ const SeatSelectionScreen = ({ navigation, route }) => {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
-              <Ionicons
-                name={selectedSeats.length > 0 ? 'arrow-forward' : 'ellipsis-horizontal'}
-                size={20}
-                color="#FFFFFF"
-              />
-              <Text style={styles.proceedButtonText}>PROCEED</Text>
+              <Ionicons name="card-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.proceedButtonText}>
+                {selectedSeats.length > 0 ? `PAY ${priceDetails.formattedTotal}` : 'PROCEED'}
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -348,7 +323,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingTop: 58,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -361,190 +337,185 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '800',
   },
   headerSubtitle: {
     color: '#B0B0B0',
-    fontSize: 13,
     marginTop: 4,
+    fontSize: 13,
   },
   scrollView: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingBottom: 30,
   },
   screen: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
     alignItems: 'center',
-    paddingVertical: 20,
-  },
-  screenContainer: {
-    width: '80%',
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    marginBottom: 10,
   },
   screenLine: {
     width: '100%',
     height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
-    transform: [{ rotate: '-5deg' }],
+    borderRadius: 999,
+    backgroundColor: '#E50914',
+  },
+  screenLabel: {
+    color: '#B0B0B0',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 10,
+    letterSpacing: 1,
   },
   legendContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 20,
-    gap: 16,
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 22,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  legendTierCard: {
+    flex: 1,
+    backgroundColor: '#141414',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  legendSwatch: {
-    width: 14,
-    height: 14,
-    borderRadius: 4,
-    marginRight: 8,
+  legendTierName: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    textAlign: 'center',
   },
-  legendAvailable: {
-    backgroundColor: '#FFFFFF',
+  legendTierMeta: {
+    color: '#A0A0A8',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 6,
   },
-  legendSelected: {
-    backgroundColor: '#E50914',
-  },
-  legendBooked: {
-    backgroundColor: '#2A2A2A',
-  },
-  legendText: {
-    color: '#B0B0B0',
-    fontSize: 12,
+  legendTierPrice: {
+    color: '#E50914',
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 6,
   },
   loadingCard: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    paddingVertical: 30,
-    paddingHorizontal: 20,
+    marginHorizontal: 20,
+    marginTop: 22,
+    padding: 24,
+    borderRadius: 18,
+    backgroundColor: '#141414',
     alignItems: 'center',
-    marginBottom: 20,
   },
   loadingText: {
-    color: '#B0B0B0',
-    marginTop: 14,
-    fontSize: 14,
+    color: '#FFFFFF',
+    marginTop: 12,
   },
   seatContainer: {
-    paddingVertical: 15,
-  },
-  gridScroll: {
+    marginHorizontal: 20,
+    marginTop: 22,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     gap: 10,
   },
   seat: {
-    width: 58,
-    height: 58,
-    borderRadius: 10,
+    width: '22.5%',
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#1A1A1A',
+    backgroundColor: '#F6F6F7',
+  },
+  seatLuxe: {
+    backgroundColor: '#FFF0D1',
+  },
+  seatPrime: {
+    backgroundColor: '#E4F1FF',
   },
   seatSelected: {
     backgroundColor: '#E50914',
-    borderColor: '#E50914',
   },
   seatBooked: {
-    backgroundColor: '#2A2A2A',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#303036',
   },
   seatLabel: {
     color: '#050505',
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 4,
+    fontWeight: '800',
   },
   seatLabelSelected: {
     color: '#FFFFFF',
   },
   seatLabelBooked: {
-    color: '#8A8A8A',
+    color: 'rgba(255,255,255,0.4)',
   },
   errorBanner: {
+    marginHorizontal: 20,
+    marginTop: 18,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 107, 107, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.25)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginTop: 8,
-    marginBottom: 18,
   },
   errorText: {
-    color: '#FFD7D7',
-    fontSize: 14,
+    color: '#FF9090',
     marginLeft: 10,
     flex: 1,
   },
   summaryContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
+    marginHorizontal: 20,
+    marginTop: 22,
+    borderRadius: 20,
+    backgroundColor: '#141414',
+    padding: 20,
     alignItems: 'center',
   },
   summaryTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: '800',
   },
   summarySubtitle: {
-    color: '#B0B0B0',
-    fontSize: 12,
+    color: '#D1D1D5',
+    marginTop: 10,
     textAlign: 'center',
   },
   summaryMeta: {
-    color: '#E50914',
-    fontSize: 12,
+    color: '#9A9A9F',
     marginTop: 8,
-    fontWeight: '600',
     textAlign: 'center',
+  },
+  summaryPrice: {
+    color: '#FFFFFF',
+    marginTop: 12,
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  summaryBreakdown: {
+    color: '#9A9A9F',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   buttonContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   proceedButton: {
-    flexDirection: 'row',
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E50914',
-    paddingVertical: 16,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E50914',
-    minHeight: 58,
+    flexDirection: 'row',
   },
   proceedButtonEnabled: {
     backgroundColor: '#E50914',
-    borderColor: '#E50914',
   },
   proceedButtonDisabled: {
-    backgroundColor: 'rgba(229, 9, 20, 0.3)',
-    borderColor: 'rgba(229, 9, 20, 0.5)',
+    backgroundColor: '#353535',
   },
   proceedButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     marginLeft: 10,
   },
 });
