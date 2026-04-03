@@ -17,10 +17,14 @@ import {
   fetchUpcoming,
   getImageUrl,
 } from '../services/tmdb';
+import { useToast } from '../components/ToastProvider';
+import { useMovieLikes } from '../hooks/useMovieLikes';
 
 const MovieListScreen = ({ route, navigation }) => {
   const { section = 'now_playing' } = route.params ?? {};
   const { width } = useWindowDimensions();
+  const { showToast } = useToast();
+  const { isMovieLiked, toggleMovieLikeState } = useMovieLikes();
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -73,6 +77,24 @@ const MovieListScreen = ({ route, navigation }) => {
     const rating = item.vote_average?.toFixed(1) || 'N/A';
     const releaseDate = item.release_date ? item.release_date.substring(0, 4) : 'TBD';
     const artwork = getImageUrl(item.poster_path || item.backdrop_path);
+    const liked = isMovieLiked(item.id);
+
+    const handleToggleLike = async (event) => {
+      event?.stopPropagation?.();
+
+      try {
+        const nextLikedState = await toggleMovieLikeState(item.id);
+        showToast(
+          nextLikedState
+            ? `${title} added to liked movies.`
+            : `${title} removed from liked movies.`,
+          { type: nextLikedState ? 'success' : 'info' },
+        );
+      } catch (error) {
+        console.error('Unable to update movie like:', error);
+        showToast('Unable to update this like right now.', { type: 'error' });
+      }
+    };
 
     return (
       <TouchableOpacity
@@ -80,6 +102,13 @@ const MovieListScreen = ({ route, navigation }) => {
         onPress={() => navigation.navigate('MovieDetails', { movieId: item.id })}
         activeOpacity={0.85}
       >
+        <TouchableOpacity
+          style={[styles.likeButton, liked && styles.likeButtonActive]}
+          onPress={handleToggleLike}
+          activeOpacity={0.85}
+        >
+          <Ionicons name={liked ? 'heart' : 'heart-outline'} size={18} color="#FFFFFF" />
+        </TouchableOpacity>
         {artwork ? (
           <Image source={{ uri: artwork }} style={styles.posterImage} resizeMode="cover" />
         ) : (
@@ -177,6 +206,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#141414',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    position: 'relative',
+  },
+  likeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(5, 5, 5, 0.72)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  likeButtonActive: {
+    backgroundColor: '#E50914',
   },
   posterImage: {
     width: '100%',

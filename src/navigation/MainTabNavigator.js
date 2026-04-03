@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import StreamScreen from '../screens/StreamScreen';
 import CommunityScreen from '../screens/CommunityScreen';
+import AIRecommendationsScreen from '../screens/AIRecommendationsScreen';
 import MyTicketsScreen from '../screens/MyTicketsScreen';
 import AdminPanelScreen from '../screens/AdminPanelScreen';
 import { useSession } from '../context/SessionProvider';
@@ -13,6 +14,7 @@ const Tab = createBottomTabNavigator();
 
 const TAB_ICONS = {
   Discover: ['compass-outline', 'compass'],
+  'AI Picks': ['chatbubble-ellipses-outline', 'chatbubble-ellipses'],
   Stream: ['play-circle-outline', 'play-circle'],
   Community: ['people-outline', 'people'],
   Tickets: ['ticket-outline', 'ticket'],
@@ -60,6 +62,7 @@ const MainTabNavigator = () => {
       })}
     >
       <Tab.Screen name="Discover" component={HomeScreen} />
+      <Tab.Screen name="AI Picks" component={AIRecommendationsScreen} />
       <Tab.Screen name="Stream" component={StreamScreen} />
       <Tab.Screen name="Community" component={CommunityScreen} />
       <Tab.Screen name="Tickets" component={MyTicketsScreen} />

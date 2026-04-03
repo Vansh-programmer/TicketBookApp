@@ -14,7 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { auth } from '../config/firebase';
 import Loader from '../components/Loader';
+import { useToast } from '../components/ToastProvider';
 import useFadeInUp from '../hooks/useFadeInUp';
+import { useMovieLikes } from '../hooks/useMovieLikes';
 import { useSession } from '../context/SessionProvider';
 import {
   playSoundEffect,
@@ -32,6 +34,8 @@ import {
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { isAdmin } = useSession();
+  const { showToast } = useToast();
+  const { isMovieLiked, toggleMovieLikeState } = useMovieLikes();
   const [nowPlaying, setNowPlaying] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
   const [indianSpotlight, setIndianSpotlight] = useState([]);
@@ -152,10 +156,32 @@ const HomeScreen = () => {
     return () => clearInterval(interval);
   }, [featuredMovies, heroWidth]);
 
+  const handleToggleMovieLike = async (event, movie) => {
+    event?.stopPropagation?.();
+
+    try {
+      const nextLikedState = await toggleMovieLikeState(movie.id);
+      const movieTitle = movie.title || movie.name || 'Movie';
+
+      playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+      showToast(
+        nextLikedState
+          ? `${movieTitle} added to liked movies.`
+          : `${movieTitle} removed from liked movies.`,
+        { type: nextLikedState ? 'success' : 'info' },
+      );
+    } catch (error) {
+      console.error('Unable to update movie like:', error);
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      showToast('Unable to update this like right now.', { type: 'error' });
+    }
+  };
+
   const renderMovie = ({ item }) => {
     const title = item.title || item.name;
     const rating = item.vote_average.toFixed(1);
     const backdrop = getImageUrl(item.backdrop_path);
+    const liked = isMovieLiked(item.id);
 
     return (
       <TouchableOpacity
@@ -173,6 +199,13 @@ const HomeScreen = () => {
             resizeMode="cover"
           />
         )}
+        <TouchableOpacity
+          style={[styles.likeButton, liked && styles.likeButtonActive]}
+          onPress={(event) => handleToggleMovieLike(event, item)}
+          activeOpacity={0.85}
+        >
+          <Ionicons name={liked ? 'heart' : 'heart-outline'} size={18} color="#FFFFFF" />
+        </TouchableOpacity>
         <View style={styles.movieOverlay}>
           <Text style={styles.movieTitle}>{title}</Text>
           <Text style={styles.movieRating}>⭐ {rating}</Text>
@@ -216,6 +249,7 @@ const HomeScreen = () => {
   const renderFeaturedMovie = ({ item }) => {
     const title = item.title || item.name;
     const artwork = getImageUrl(item.backdrop_path || item.poster_path);
+    const liked = isMovieLiked(item.id);
     const genres = [item.release_date?.slice(0, 4), `${item.vote_average?.toFixed(1) || 'N/A'} IMDb`]
       .filter(Boolean)
       .join(' • ');
@@ -236,6 +270,13 @@ const HomeScreen = () => {
             <Ionicons name="film-outline" size={44} color="#B0B0B0" />
           </View>
         )}
+        <TouchableOpacity
+          style={[styles.featuredLikeButton, liked && styles.likeButtonActive]}
+          onPress={(event) => handleToggleMovieLike(event, item)}
+          activeOpacity={0.85}
+        >
+          <Ionicons name={liked ? 'heart' : 'heart-outline'} size={18} color="#FFFFFF" />
+        </TouchableOpacity>
         <View style={styles.featuredOverlay}>
           <Text style={styles.featuredEyebrow}>Featured</Text>
           <Text style={styles.featuredTitle} numberOfLines={2}>
@@ -559,6 +600,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#141414',
   },
+  featuredLikeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(5, 5, 5, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
   featuredImage: {
     width: '100%',
     height: '100%',
@@ -680,6 +733,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#1A1A1A',
     position: 'relative',
+  },
+  likeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(5, 5, 5, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  likeButtonActive: {
+    backgroundColor: '#E50914',
   },
   backdropImage: {
     width: '100%',

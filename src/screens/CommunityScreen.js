@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { auth } from '../config/firebase';
+import { censorText, isBadWordsConfigured } from '../services/profanity';
 import {
   addCommentToPost,
   createCommunityPost,
@@ -96,11 +97,16 @@ const CommunityScreen = () => {
     setSubmittingPost(true);
 
     try {
+      const [censoredTopic, censoredPostText] = await Promise.all([
+        censorText(postTopic),
+        censorText(postText),
+      ]);
+
       await createCommunityPost({
         author: userLabel,
         handle: `@${userLabel.toLowerCase().replace(/\s+/g, '')}`,
-        topic: postTopic,
-        text: postText,
+        topic: censoredTopic,
+        text: censoredPostText,
         imageData: selectedImage?.dataUri || null,
       });
 
@@ -126,7 +132,8 @@ const CommunityScreen = () => {
     }
 
     try {
-      await addCommentToPost(postId, userLabel, draft);
+      const censoredDraft = await censorText(draft);
+      await addCommentToPost(postId, userLabel, censoredDraft);
       setCommentDrafts((current) => ({
         ...current,
         [postId]: '',
@@ -263,6 +270,11 @@ const CommunityScreen = () => {
 
           <View style={styles.composerCard}>
             <Text style={styles.composerTitle}>Start a discussion</Text>
+            {!isBadWordsConfigured ? (
+              <Text style={styles.moderationHint}>
+                Add `EXPO_PUBLIC_BAD_WORDS_API_KEY` for API-powered censoring. A small local fallback is active until then.
+              </Text>
+            ) : null}
             {feedError ? <Text style={styles.errorText}>{feedError}</Text> : null}
             <TextInput
               value={postTopic}
@@ -388,6 +400,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 14,
+  },
+  moderationHint: {
+    color: '#D4B66E',
+    marginBottom: 12,
+    lineHeight: 18,
+    fontSize: 12,
   },
   topicInput: {
     backgroundColor: '#18181C',

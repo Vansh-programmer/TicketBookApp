@@ -15,6 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Loader from '../components/Loader';
 import { useToast } from '../components/ToastProvider';
 import useFadeInUp from '../hooks/useFadeInUp';
+import { useMovieLikes } from '../hooks/useMovieLikes';
 import {
   playSoundEffect,
   SOUND_EFFECT_KEYS,
@@ -41,6 +42,7 @@ const MovieDetailsScreen = () => {
   const headerAnimation = useFadeInUp({ delay: 0 });
   const contentAnimation = useFadeInUp({ delay: 120 });
   const { showToast } = useToast();
+  const { isMovieLiked, toggleMovieLikeState } = useMovieLikes();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -128,6 +130,7 @@ const MovieDetailsScreen = () => {
   };
 
   const trailerVideoId = extractYouTubeVideoId(trailerUrl);
+  const liked = isMovieLiked(movieId);
 
   const handlePlayTrailerInApp = () => {
     if (!trailerVideoId) {
@@ -144,6 +147,29 @@ const MovieDetailsScreen = () => {
       description: movie.overview,
       badge: 'Trailer',
     });
+  };
+
+  const handleToggleLike = async () => {
+    if (!movieId) {
+      return;
+    }
+
+    try {
+      const nextLikedState = await toggleMovieLikeState(movieId);
+      const movieTitle = movie?.title || movie?.name || 'Movie';
+
+      playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+      showToast(
+        nextLikedState
+          ? `${movieTitle} added to liked movies.`
+          : `${movieTitle} removed from liked movies.`,
+        { type: nextLikedState ? 'success' : 'info' },
+      );
+    } catch (error) {
+      console.error('Unable to update movie like:', error);
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      showToast('Unable to update this like right now.', { type: 'error' });
+    }
   };
 
   return (
@@ -221,6 +247,15 @@ const MovieDetailsScreen = () => {
                 <Text style={styles.trailerButtonText}>
                   {trailerUrl ? 'Open Trailer' : 'Trailer Unavailable'}
                 </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.secondaryButton, liked && styles.likeButtonActive]}
+                onPress={handleToggleLike}
+                activeOpacity={0.85}
+              >
+                <Ionicons name={liked ? 'heart' : 'heart-outline'} size={20} color="#FFFFFF" />
+                <Text style={styles.trailerButtonText}>{liked ? 'Liked' : 'Like Movie'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -456,6 +491,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     marginLeft: 8,
+  },
+  likeButtonActive: {
+    backgroundColor: '#B91C1C',
   },
   streamButton: {
     marginTop: 12,
