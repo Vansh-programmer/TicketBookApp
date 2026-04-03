@@ -22,7 +22,6 @@ import {
   playSoundEffect,
   SOUND_EFFECT_KEYS,
 } from '../services/soundEffects';
-import { getFeaturedStream } from '../services/streamCatalog';
 import {
   fetchIndianCinema,
   fetchNowPlaying,
@@ -30,6 +29,9 @@ import {
   fetchUpcoming,
   getImageUrl,
 } from '../services/tmdb';
+
+const HERO_HORIZONTAL_INSET = 14;
+const HERO_CARD_GAP = 10;
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -50,8 +52,9 @@ const HomeScreen = () => {
   const sectionAnimation = useFadeInUp({ delay: 180 });
   const heroListRef = useRef(null);
   const heroIndexRef = useRef(0);
-  const heroWidth = Dimensions.get('window').width - 40;
-  const featuredStream = getFeaturedStream();
+  const screenWidth = Dimensions.get('window').width;
+  const heroWidth = screenWidth - HERO_HORIZONTAL_INSET * 2;
+  const heroSnapInterval = heroWidth + HERO_CARD_GAP;
 
   const featuredMovies = useMemo(() => nowPlaying.slice(0, 5), [nowPlaying]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
@@ -148,13 +151,13 @@ const HomeScreen = () => {
       setCurrentHeroIndex(heroIndexRef.current);
 
       heroListRef.current?.scrollToOffset({
-        offset: heroIndexRef.current * heroWidth,
+        offset: heroIndexRef.current * heroSnapInterval,
         animated: true,
       });
-    }, 3200);
+    }, 3600);
 
     return () => clearInterval(interval);
-  }, [featuredMovies, heroWidth]);
+  }, [featuredMovies, heroSnapInterval]);
 
   const handleToggleMovieLike = async (event, movie) => {
     event?.stopPropagation?.();
@@ -182,6 +185,7 @@ const HomeScreen = () => {
     const rating = item.vote_average.toFixed(1);
     const backdrop = getImageUrl(item.backdrop_path);
     const liked = isMovieLiked(item.id);
+    const releaseYear = item.release_date?.slice(0, 4) || 'TBA';
 
     return (
       <TouchableOpacity
@@ -206,9 +210,13 @@ const HomeScreen = () => {
         >
           <Ionicons name={liked ? 'heart' : 'heart-outline'} size={18} color="#FFFFFF" />
         </TouchableOpacity>
+        <View style={styles.movieGradient} />
         <View style={styles.movieOverlay}>
-          <Text style={styles.movieTitle}>{title}</Text>
-          <Text style={styles.movieRating}>⭐ {rating}</Text>
+          <Text style={styles.movieTitle} numberOfLines={2}>{title}</Text>
+          <View style={styles.movieMetaRow}>
+            <Text style={styles.movieMetaPill}>IMDb {rating}</Text>
+            <Text style={styles.movieMetaSecondary}>{releaseYear}</Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -270,6 +278,7 @@ const HomeScreen = () => {
             <Ionicons name="film-outline" size={44} color="#B0B0B0" />
           </View>
         )}
+        <View style={styles.featuredImageShade} />
         <TouchableOpacity
           style={[styles.featuredLikeButton, liked && styles.likeButtonActive]}
           onPress={(event) => handleToggleMovieLike(event, item)}
@@ -278,7 +287,10 @@ const HomeScreen = () => {
           <Ionicons name={liked ? 'heart' : 'heart-outline'} size={18} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.featuredOverlay}>
-          <Text style={styles.featuredEyebrow}>Featured</Text>
+          <View style={styles.featuredEyebrowRow}>
+            <Text style={styles.featuredEyebrow}>Featured</Text>
+            <Text style={styles.featuredMiniMeta}>{item.release_date?.slice(0, 4) || 'New'}</Text>
+          </View>
           <Text style={styles.featuredTitle} numberOfLines={2}>
             {title}
           </Text>
@@ -308,13 +320,19 @@ const HomeScreen = () => {
 
   const renderHeader = () => (
     <>
+      <View pointerEvents="none" style={styles.backgroundOrbPrimary} />
+      <View pointerEvents="none" style={styles.backgroundOrbSecondary} />
       <Animated.View style={headerAnimation}>
         <View style={styles.header}>
-          <View style={styles.userAvatar}>
-            <Ionicons name="person-circle" size={40} color="#E50914" />
-            <Text style={styles.userName}>Hi, {userLabel}</Text>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.userGreeting}>Hi, {userLabel}</Text>
+              <Text style={styles.headerText}>Discover amazing movies</Text>
+            </View>
+            <View style={styles.avatarShell}>
+              <Ionicons name="person-circle" size={34} color="#FFFFFF" />
+            </View>
           </View>
-          <Text style={styles.headerText}>Discover amazing movies</Text>
         </View>
       </Animated.View>
 
@@ -330,16 +348,18 @@ const HomeScreen = () => {
               pagingEnabled
               decelerationRate="fast"
               showsHorizontalScrollIndicator={false}
-              snapToInterval={heroWidth}
+              contentContainerStyle={styles.heroListContent}
+              ItemSeparatorComponent={() => <View style={{ width: HERO_CARD_GAP }} />}
+              snapToInterval={heroSnapInterval}
               snapToAlignment="start"
               onMomentumScrollEnd={(event) => {
-                const nextIndex = Math.round(event.nativeEvent.contentOffset.x / heroWidth);
+                const nextIndex = Math.round(event.nativeEvent.contentOffset.x / heroSnapInterval);
                 heroIndexRef.current = nextIndex;
                 setCurrentHeroIndex(nextIndex);
               }}
               getItemLayout={(_, index) => ({
-                length: heroWidth,
-                offset: heroWidth * index,
+                length: heroSnapInterval,
+                offset: heroSnapInterval * index,
                 index,
               })}
             />
@@ -366,20 +386,24 @@ const HomeScreen = () => {
               playSoundEffect(SOUND_EFFECT_KEYS.TAP);
               navigation.navigate('Tickets');
             }}
-          >
-            <Ionicons name="ticket-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.quickActionText}>My Tickets</Text>
-          </TouchableOpacity>
+            >
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name="ticket-outline" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickActionText}>My Tickets</Text>
+            </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickActionButton}
             onPress={() => {
               playSoundEffect(SOUND_EFFECT_KEYS.TAP);
               navigation.getParent()?.navigate('Movies', { section: 'now_playing' });
             }}
-          >
-            <Ionicons name="grid-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.quickActionText}>Browse Movies</Text>
-          </TouchableOpacity>
+            >
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name="grid-outline" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickActionText}>Browse Movies</Text>
+            </TouchableOpacity>
         </View>
       </Animated.View>
 
@@ -393,7 +417,9 @@ const HomeScreen = () => {
                 navigation.navigate('Admin');
               }}
             >
-              <Ionicons name="shield-outline" size={18} color="#FFFFFF" />
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name="shield-outline" size={18} color="#FFFFFF" />
+              </View>
               <Text style={styles.quickActionText}>Admin Panel</Text>
             </TouchableOpacity>
           </View>
@@ -408,29 +434,35 @@ const HomeScreen = () => {
               playSoundEffect(SOUND_EFFECT_KEYS.TAP);
               navigation.navigate('Stream');
             }}
-          >
-            <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.quickActionText}>Watch Now</Text>
-          </TouchableOpacity>
+            >
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickActionText}>Watch Now</Text>
+            </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickActionButton}
             onPress={() => {
               playSoundEffect(SOUND_EFFECT_KEYS.TAP);
               navigation.navigate('Community');
             }}
-          >
-            <Ionicons name="people-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.quickActionText}>Community</Text>
-          </TouchableOpacity>
+            >
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name="people-outline" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickActionText}>Community</Text>
+            </TouchableOpacity>
         </View>
       </Animated.View>
 
       <Animated.View style={toolsAnimation}>
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#808080" />
+          <View style={styles.searchIconWrap}>
+            <Ionicons name="search" size={18} color="#FFFFFF" />
+          </View>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search movies, then jump into streaming..."
+            placeholder="Search movies"
             placeholderTextColor="#606060"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -442,35 +474,11 @@ const HomeScreen = () => {
               navigation.navigate('Stream');
             }}
           >
-            <Ionicons name="play" size={20} color="#808080" />
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </Animated.View>
 
-      <Animated.View style={toolsAnimation}>
-        <TouchableOpacity
-          style={styles.discoveryCard}
-          activeOpacity={0.92}
-          onPress={() => {
-            playSoundEffect(SOUND_EFFECT_KEYS.TAP);
-            navigation.navigate('Stream');
-          }}
-        >
-          <View style={styles.discoveryCardCopy}>
-            <Text style={styles.discoveryEyebrow}>New in app</Text>
-            <Text style={styles.discoveryTitle}>Stream with YouTube playback</Text>
-            <Text style={styles.discoveryText}>
-              Jump from booking into a Netflix-style watch area with mobile-friendly in-app playback.
-            </Text>
-            <Text style={styles.discoveryMeta}>
-              Featured: {featuredStream.title} • {featuredStream.duration}
-            </Text>
-          </View>
-          <View style={styles.discoveryIconBubble}>
-            <Ionicons name="play-circle" size={34} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
     </>
   );
 
@@ -493,48 +501,89 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#06090E',
   },
   scrollContent: {
     paddingTop: 54,
-    paddingBottom: 36,
+    paddingBottom: 40,
+  },
+  backgroundOrbPrimary: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(239, 68, 68, 0.13)',
+    top: -20,
+    right: -90,
+  },
+  backgroundOrbSecondary: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    top: 320,
+    left: -80,
   },
   header: {
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  userAvatar: {
+  headerRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 30,
-    padding: 10,
-    paddingHorizontal: 16,
   },
-  userName: {
+  avatarShell: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  userGreeting: {
     fontSize: 14,
-    color: '#E50914',
+    color: '#BFC9D9',
     fontWeight: '600',
-    marginLeft: 10,
+    marginBottom: 6,
   },
   headerText: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '800',
     color: '#FFFFFF',
-    marginTop: 14,
+    lineHeight: 38,
+  },
+  headerSubtext: {
+    color: '#A6B0BF',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 12,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2A2A2A',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(18,22,28,0.92)',
+    borderRadius: 22,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     marginRight: 20,
     marginHorizontal: 20,
     marginBottom: 20,
-    height: 50,
-    elevation: 2,
+    minHeight: 58,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  searchIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   quickActions: {
     paddingHorizontal: 20,
@@ -542,63 +591,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  discoveryCard: {
-    marginHorizontal: 20,
-    marginBottom: 18,
-    borderRadius: 22,
-    padding: 18,
-    backgroundColor: '#12161F',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  discoveryCardCopy: {
-    flex: 1,
-    paddingRight: 14,
-  },
-  discoveryEyebrow: {
-    color: '#E50914',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  discoveryTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
-    marginTop: 8,
-  },
-  discoveryText: {
-    color: '#C8C8CC',
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 8,
-  },
-  discoveryMeta: {
-    color: '#8A8A92',
-    marginTop: 10,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  discoveryIconBubble: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#E50914',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   heroSection: {
-    marginBottom: 22,
+    marginBottom: 18,
+  },
+  heroListContent: {
+    paddingHorizontal: HERO_HORIZONTAL_INSET,
   },
   featuredCard: {
-    height: 220,
-    marginHorizontal: 20,
-    borderRadius: 22,
+    height: 256,
+    borderRadius: 30,
     overflow: 'hidden',
     backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  featuredImageShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(6, 9, 14, 0.18)',
   },
   featuredLikeButton: {
     position: 'absolute',
@@ -629,15 +638,25 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 18,
     paddingVertical: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.58)',
+    backgroundColor: 'rgba(7, 10, 14, 0.82)',
+  },
+  featuredEyebrowRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   featuredEyebrow: {
-    color: '#E50914',
+    color: '#F7D27D',
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     marginBottom: 6,
     letterSpacing: 0.8,
+  },
+  featuredMiniMeta: {
+    color: '#D0D6E2',
+    fontSize: 12,
+    fontWeight: '600',
   },
   featuredTitle: {
     color: '#FFFFFF',
@@ -669,28 +688,41 @@ const styles = StyleSheet.create({
   quickActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#141414',
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: 'rgba(18,22,28,0.92)',
+    borderRadius: 22,
+    paddingVertical: 15,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     flex: 1,
   },
+  quickActionIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   quickActionText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    marginLeft: 8,
   },
   searchIconContainer: {
-    marginLeft: 'auto',
+    marginLeft: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E04A57',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchInput: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
   },
   sectionContainer: {
     marginBottom: 30,
@@ -718,21 +750,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   sectionLink: {
-    fontSize: 14,
-    color: '#E50914',
+    fontSize: 13,
+    color: '#F7D27D',
     fontWeight: '600',
-    textDecorationLine: 'underline',
   },
   listContent: {
     paddingVertical: 10,
+    paddingHorizontal: 16,
   },
   movieItem: {
-    width: 130,
-    marginHorizontal: 5,
-    borderRadius: 12,
+    width: 166,
+    marginHorizontal: 6,
+    borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: '#1A1A1A',
+    backgroundColor: 'rgba(18, 20, 25, 0.98)',
     position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   likeButton: {
     position: 'absolute',
@@ -751,29 +785,45 @@ const styles = StyleSheet.create({
   },
   backdropImage: {
     width: '100%',
-    height: 180,
+    height: 210,
+  },
+  movieGradient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(6, 9, 14, 0.18)',
   },
   movieOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    padding: 12,
+    backgroundColor: 'rgba(8, 10, 14, 0.84)',
   },
   movieTitle: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 16,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
   },
-  movieRating: {
-    color: '#E50914',
+  movieMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  movieMetaPill: {
+    color: '#FFFFFF',
     fontSize: 10,
+    fontWeight: '700',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  movieMetaSecondary: {
+    color: '#B3BECD',
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 4,
   },
   errorText: {
     color: '#FFFFFF',

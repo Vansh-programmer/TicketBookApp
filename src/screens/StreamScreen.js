@@ -24,6 +24,8 @@ import {
   subscribeToAdminStreamEntries,
 } from '../services/adminCatalog';
 
+const STREAM_HORIZONTAL_INSET = 14;
+
 const StreamScreen = ({ navigation }) => {
   const [catalog, setCatalog] = useState(STREAM_CATALOG);
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,11 +120,10 @@ const StreamScreen = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View pointerEvents="none" style={styles.backgroundOrbPrimary} />
+      <View pointerEvents="none" style={styles.backgroundOrbSecondary} />
       <View style={styles.header}>
         <Text style={styles.heading}>Stream</Text>
-        <Text style={styles.subheading}>
-          Watch YouTube-powered picks without leaving the app, now with Indian titles and genre browsing.
-        </Text>
       </View>
 
       <TouchableOpacity style={styles.featuredCard} activeOpacity={0.9} onPress={() => openPlayer(featuredItem)}>
@@ -133,12 +134,20 @@ const StreamScreen = ({ navigation }) => {
         <View style={styles.featuredOverlay}>
           <Text style={styles.featuredBadge}>{featuredItem.badge}</Text>
           <Text style={styles.featuredTitle}>{featuredItem.title}</Text>
-          <Text style={styles.featuredMeta}>
-            {featuredItem.year} • {featuredItem.duration} • {featuredItem.genre}
-          </Text>
-          <Text style={styles.featuredDescription} numberOfLines={2}>
-            {featuredItem.description}
-          </Text>
+          <View style={styles.featuredMetaRow}>
+            <View style={styles.featuredMetaChip}>
+              <Ionicons name="calendar-outline" size={12} color="#FFFFFF" />
+              <Text style={styles.featuredMetaChipText}>{featuredItem.year}</Text>
+            </View>
+            <View style={styles.featuredMetaChip}>
+              <Ionicons name="time-outline" size={12} color="#FFFFFF" />
+              <Text style={styles.featuredMetaChipText}>{featuredItem.duration}</Text>
+            </View>
+            <View style={styles.featuredMetaChip}>
+              <Ionicons name="albums-outline" size={12} color="#FFFFFF" />
+              <Text style={styles.featuredMetaChipText}>{featuredItem.genre}</Text>
+            </View>
+          </View>
           <View style={styles.playCta}>
             <Ionicons name="play" size={16} color="#050505" />
             <Text style={styles.playCtaText}>Play now</Text>
@@ -151,7 +160,7 @@ const StreamScreen = ({ navigation }) => {
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search by title, vibe, or genre"
+          placeholder="Search titles"
           placeholderTextColor="#6F6F74"
           style={styles.searchInput}
         />
@@ -178,7 +187,6 @@ const StreamScreen = ({ navigation }) => {
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Continue Watching</Text>
-            <Text style={styles.sectionCaption}>Recently played in-app</Text>
           </View>
           <FlatList
             data={watchHistory}
@@ -196,7 +204,6 @@ const StreamScreen = ({ navigation }) => {
           <View style={styles.sectionBlock} key={section.key}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
-              <Text style={styles.sectionCaption}>{section.items.length} titles</Text>
             </View>
             <FlatList
               data={section.items}
@@ -214,7 +221,6 @@ const StreamScreen = ({ navigation }) => {
         <View style={styles.emptyState}>
           <Ionicons name="search-outline" size={42} color="#7A7A7A" />
           <Text style={styles.emptyTitle}>Nothing matched that search</Text>
-          <Text style={styles.emptyText}>Try a broader search or switch the genre chip.</Text>
         </View>
       ) : null}
     </ScrollView>
@@ -224,11 +230,29 @@ const StreamScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#06090E',
   },
   content: {
     paddingTop: 58,
     paddingBottom: 36,
+  },
+  backgroundOrbPrimary: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    top: 30,
+    right: -70,
+  },
+  backgroundOrbSecondary: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(56, 189, 248, 0.11)',
+    top: 320,
+    left: -80,
   },
   header: {
     paddingHorizontal: 18,
@@ -239,19 +263,22 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
   },
-  subheading: {
-    color: '#A4A4A8',
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 8,
-  },
   featuredCard: {
-    marginHorizontal: 18,
-    height: 250,
-    borderRadius: 26,
+    marginHorizontal: STREAM_HORIZONTAL_INSET,
+    height: 270,
+    borderRadius: 30,
     overflow: 'hidden',
-    backgroundColor: '#111113',
+    backgroundColor: 'rgba(17, 19, 24, 0.96)',
     marginBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 18,
+    },
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
   },
   featuredImage: {
     width: '100%',
@@ -263,7 +290,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: 18,
-    backgroundColor: 'rgba(0,0,0,0.62)',
+    backgroundColor: 'rgba(6,8,14,0.84)',
   },
   featuredBadge: {
     color: '#FFD66B',
@@ -278,15 +305,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 6,
   },
-  featuredMeta: {
-    color: '#D6D6D9',
-    marginTop: 8,
-    fontSize: 13,
+  featuredMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
   },
-  featuredDescription: {
-    color: '#EFEFF1',
-    marginTop: 8,
-    lineHeight: 20,
+  featuredMetaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  featuredMetaChipText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 6,
   },
   playCta: {
     marginTop: 14,
@@ -304,15 +341,15 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   searchContainer: {
-    marginHorizontal: 18,
+    marginHorizontal: STREAM_HORIZONTAL_INSET,
     marginBottom: 14,
-    borderRadius: 16,
-    backgroundColor: '#151518',
+    borderRadius: 20,
+    backgroundColor: 'rgba(18,22,28,0.92)',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   searchInput: {
     flex: 1,
@@ -321,7 +358,7 @@ const styles = StyleSheet.create({
     paddingLeft: 10,
   },
   genreRow: {
-    paddingHorizontal: 18,
+    paddingHorizontal: STREAM_HORIZONTAL_INSET,
     paddingBottom: 8,
     gap: 10,
   },
@@ -329,20 +366,20 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#141417',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
   genreChipActive: {
-    backgroundColor: '#E50914',
-    borderColor: '#E50914',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
   },
   genreChipText: {
     color: '#D0D0D5',
     fontWeight: '700',
   },
   genreChipTextActive: {
-    color: '#FFFFFF',
+    color: '#091018',
   },
   sectionBlock: {
     marginTop: 18,
@@ -359,25 +396,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
   },
-  sectionCaption: {
-    color: '#8B8B93',
-    fontSize: 12,
-  },
   horizontalList: {
-    paddingHorizontal: 18,
+    paddingHorizontal: STREAM_HORIZONTAL_INSET,
     gap: 12,
   },
   streamCard: {
-    width: 220,
-    borderRadius: 20,
+    width: 268,
+    borderRadius: 26,
     overflow: 'hidden',
-    backgroundColor: '#111113',
+    backgroundColor: 'rgba(15, 18, 24, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
   streamCardImage: {
     width: '100%',
-    height: 124,
+    height: 148,
   },
   streamCardBody: {
     padding: 14,
@@ -401,10 +434,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   emptyState: {
-    marginHorizontal: 18,
+    marginHorizontal: STREAM_HORIZONTAL_INSET,
     marginTop: 24,
-    backgroundColor: '#111113',
-    borderRadius: 22,
+    backgroundColor: 'rgba(15, 18, 24, 0.96)',
+    borderRadius: 26,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
@@ -415,12 +448,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginTop: 12,
-  },
-  emptyText: {
-    color: '#9A9AA0',
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
   },
 });
 

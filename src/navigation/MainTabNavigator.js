@@ -26,6 +26,14 @@ const getTabBarIcon = (routeName, focused) => {
   return focused ? focusedIcon : defaultIcon;
 };
 
+const TabIcon = ({ routeName, focused, color, size }) => (
+  <Ionicons
+    name={getTabBarIcon(routeName, focused)}
+    size={focused ? size + 1 : size}
+    color={color}
+  />
+);
+
 const MainTabNavigator = () => {
   const { isAdmin } = useSession();
 
@@ -34,30 +42,53 @@ const MainTabNavigator = () => {
       initialRouteName="Discover"
       screenOptions={({ route }) => ({
         headerShown: false,
+        animation: 'fade',
         tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: '#8B8B8B',
+        tabBarInactiveTintColor: '#98A2B3',
         tabBarShowLabel: true,
         tabBarHideOnKeyboard: true,
+        tabBarActiveBackgroundColor: 'rgba(255,255,255,0.08)',
         tabBarStyle: {
-          backgroundColor: '#0B0B0D',
-          borderTopColor: 'rgba(255,255,255,0.08)',
-          height: Platform.OS === 'ios' ? 86 : 70,
+          position: 'absolute',
+          left: 14,
+          right: 14,
+          bottom: Platform.OS === 'ios' ? 18 : 12,
+          height: Platform.OS === 'ios' ? 82 : 72,
+          backgroundColor: 'rgba(10, 12, 16, 0.86)',
+          borderTopColor: 'rgba(255,255,255,0.06)',
+          borderTopWidth: 1,
+          borderRadius: 28,
           paddingTop: 8,
           paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+          elevation: 0,
+          shadowColor: '#000000',
+          shadowOffset: {
+            width: 0,
+            height: 10,
+          },
+          shadowOpacity: 0.22,
+          shadowRadius: 20,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '700',
+          fontWeight: '600',
+          marginTop: 2,
+        },
+        tabBarItemStyle: {
+          borderRadius: 22,
+          marginHorizontal: 4,
+          marginVertical: 6,
         },
         tabBarIcon: ({ focused, color, size }) => (
-          <Ionicons
-            name={getTabBarIcon(route.name, focused)}
-            size={size}
+          <TabIcon
+            routeName={route.name}
+            focused={focused}
             color={color}
+            size={size}
           />
         ),
         sceneStyle: {
-          backgroundColor: '#050505',
+          backgroundColor: '#06090E',
         },
       })}
     >

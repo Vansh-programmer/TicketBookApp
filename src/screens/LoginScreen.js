@@ -77,26 +77,37 @@ const LoginScreen = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
+      <View pointerEvents="none" style={styles.backgroundOrbPrimary} />
+      <View pointerEvents="none" style={styles.backgroundOrbSecondary} />
+      <View pointerEvents="none" style={styles.backgroundGlow} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         <Animated.View style={headerAnimation}>
+          <View style={styles.heroBadge}>
+            <Ionicons name="sparkles-outline" size={14} color="#FFD66B" />
+            <Text style={styles.heroBadgeText}>Elegant booking, softer motion</Text>
+          </View>
+
           <View style={styles.logoContainer}>
-            <Ionicons name="film-outline" size={80} color="#E50914" />
-            <Text style={styles.logoText}>Cinema</Text>
-            <Text style={styles.logoText}>
-              <Text style={styles.redLogoText}>Ticket</Text>
-            </Text>
+            <View style={styles.logoHalo}>
+              <Ionicons name="film-outline" size={52} color="#F8FAFC" />
+            </View>
+            <Text style={styles.logoText}>Cinema Ticket</Text>
           </View>
 
           <Text style={styles.welcomeText}>Welcome back!</Text>
-          <Text style={styles.welcomeSubtitle}>Sign in to continue to your account</Text>
+          <Text style={styles.welcomeSubtitle}>
+            Sign in to continue with a cleaner, smoother movie-booking flow.
+          </Text>
         </Animated.View>
 
         <Animated.View style={formAnimation}>
           <View style={styles.form}>
+          <Text style={styles.formEyebrow}>Account Access</Text>
+          <Text style={styles.formTitle}>Enter the cinema lobby</Text>
           <View style={styles.inputContainer}>
             <Ionicons
               name="mail-outline"
@@ -201,66 +212,138 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
-    paddingHorizontal: 20,
+    backgroundColor: '#05070B',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  backgroundOrbPrimary: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(239, 68, 68, 0.16)',
+    top: -50,
+    right: -40,
+  },
+  backgroundOrbSecondary: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    bottom: 80,
+    left: -70,
+  },
+  backgroundGlow: {
+    position: 'absolute',
+    top: 180,
+    left: 28,
+    right: 28,
+    height: 280,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  heroBadge: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 32,
+    marginBottom: 22,
+  },
+  heroBadgeText: {
+    color: '#F5D98E',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 60,
-    marginBottom: 40,
+    marginBottom: 28,
+  },
+  logoHalo: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   logoText: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 1,
+    letterSpacing: 0.4,
     textAlign: 'center',
-  },
-  redLogoText: {
-    color: '#E50914',
   },
   welcomeText: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
   },
   welcomeSubtitle: {
-    fontSize: 16,
-    color: '#B0B0B0',
+    fontSize: 15,
+    color: '#B8C0CC',
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
+    lineHeight: 22,
   },
   form: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 20,
+    backgroundColor: 'rgba(15, 18, 24, 0.88)',
+    borderRadius: 28,
     padding: 24,
     marginBottom: 30,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    elevation: 0,
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 16,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.24,
+    shadowRadius: 26,
+  },
+  formEyebrow: {
+    color: '#D6B15A',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  formTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 18,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 18,
-    backgroundColor: '#111111',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   inputIcon: {
     marginRight: 12,
@@ -294,14 +377,14 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     height: 60,
-    borderRadius: 16,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    backgroundColor: '#E50914',
+    backgroundColor: '#DE3341',
   },
   buttonDisabled: {
-    backgroundColor: '#4A1B1E',
+    backgroundColor: '#4D2430',
   },
   buttonText: {
     color: '#FFFFFF',
@@ -313,7 +396,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
   signupText: {
     fontSize: 14,
@@ -332,17 +415,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 30,
   },
   footerLogo: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 18,
     padding: 10,
+    marginRight: 10,
   },
   footerText: {
     fontSize: 12,
-    color: '#808080',
-    marginTop: 8,
+    color: '#8C96A5',
   },
 });
 

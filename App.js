@@ -1,7 +1,12 @@
 import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import {
+  CardStyleInterpolators,
+  TransitionPresets,
+  createStackNavigator,
+} from '@react-navigation/stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from './src/components/ToastProvider';
@@ -37,6 +42,13 @@ export default function App() {
                 initialRouteName="Splash"
                 screenOptions={{
                   headerShown: false,
+                  gestureEnabled: true,
+                  gestureDirection: 'horizontal',
+                  ...TransitionPresets.SlideFromRightIOS,
+                  cardStyleInterpolator:
+                    Platform.OS === 'ios'
+                      ? CardStyleInterpolators.forHorizontalIOS
+                      : CardStyleInterpolators.forFadeFromBottomAndroid,
                   cardStyle: {
                     backgroundColor: '#050505',
                   },
@@ -53,7 +65,14 @@ export default function App() {
                 <Stack.Screen name="DateSelection" component={DateSelectionScreen} />
                 <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
                 <Stack.Screen name="DigitalTicket" component={DigitalTicketScreen} />
-                <Stack.Screen name="Player" component={PlayerScreen} />
+                <Stack.Screen
+                  name="Player"
+                  component={PlayerScreen}
+                  options={{
+                    gestureDirection: 'vertical',
+                    ...TransitionPresets.ModalSlideFromBottomIOS,
+                  }}
+                />
               </Stack.Navigator>
             </NavigationContainer>
           </ToastProvider>

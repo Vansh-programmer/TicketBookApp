@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Animated,
   FlatList,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -112,30 +111,13 @@ const MovieDetailsScreen = () => {
     );
   }
 
-  const handleWatchTrailer = async () => {
-    if (!trailerUrl) {
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
-      showToast('Trailer is not available for this movie yet.', { type: 'error' });
-      return;
-    }
-
-    try {
-      playSoundEffect(SOUND_EFFECT_KEYS.TRAILER);
-      await Linking.openURL(trailerUrl);
-    } catch (openError) {
-      console.error('Unable to open trailer:', openError);
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
-      showToast('Unable to open the trailer right now.', { type: 'error' });
-    }
-  };
-
   const trailerVideoId = extractYouTubeVideoId(trailerUrl);
   const liked = isMovieLiked(movieId);
 
-  const handlePlayTrailerInApp = () => {
+  const handlePlayTrailer = () => {
     if (!trailerVideoId) {
       playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
-      showToast('In-app playback is not available for this trailer yet.', { type: 'error' });
+      showToast('Trailer is not available for this movie yet.', { type: 'error' });
       return;
     }
 
@@ -179,7 +161,11 @@ const MovieDetailsScreen = () => {
       showsVerticalScrollIndicator={false}
     >
       <Animated.View style={headerAnimation}>
-        <View style={styles.posterContainer}>
+        <TouchableOpacity
+          style={styles.posterContainer}
+          onPress={handlePlayTrailer}
+          activeOpacity={0.92}
+        >
           {movie.poster_path ? (
             <Image
               source={{
@@ -193,7 +179,19 @@ const MovieDetailsScreen = () => {
               <Ionicons name="film-outline" size={56} color="#606060" />
             </View>
           )}
-        </View>
+          <View style={styles.posterOverlay}>
+            <View style={[styles.posterPlayButton, !trailerVideoId && styles.posterPlayButtonDisabled]}>
+              <Ionicons
+                name={trailerVideoId ? 'play' : 'videocam-off-outline'}
+                size={22}
+                color="#FFFFFF"
+              />
+            </View>
+            <Text style={styles.posterHint}>
+              {trailerVideoId ? 'Tap poster to play' : 'Trailer unavailable'}
+            </Text>
+          </View>
+        </TouchableOpacity>
       </Animated.View>
 
       <Animated.View style={contentAnimation}>
@@ -226,36 +224,12 @@ const MovieDetailsScreen = () => {
             <Text style={styles.overviewText}>{movie.overview}</Text>
             <View style={styles.actionRow}>
               <TouchableOpacity
-                style={[styles.trailerButton, !trailerVideoId && styles.trailerButtonDisabled]}
-                onPress={handlePlayTrailerInApp}
-                disabled={!trailerVideoId}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="play-circle-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.trailerButtonText}>
-                  {trailerVideoId ? 'Play In App' : 'In-App Unavailable'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.secondaryButton, !trailerUrl && styles.trailerButtonDisabled]}
-                onPress={handleWatchTrailer}
-                disabled={!trailerUrl}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="logo-youtube" size={20} color="#FFFFFF" />
-                <Text style={styles.trailerButtonText}>
-                  {trailerUrl ? 'Open Trailer' : 'Trailer Unavailable'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={[styles.secondaryButton, liked && styles.likeButtonActive]}
                 onPress={handleToggleLike}
                 activeOpacity={0.85}
               >
                 <Ionicons name={liked ? 'heart' : 'heart-outline'} size={20} color="#FFFFFF" />
-                <Text style={styles.trailerButtonText}>{liked ? 'Liked' : 'Like Movie'}</Text>
+                <Text style={styles.secondaryButtonText}>{liked ? 'Liked' : 'Like Movie'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -314,6 +288,7 @@ const styles = StyleSheet.create({
   posterContainer: {
     height: 300, // Adjust height based on device
     width: '100%',
+    position: 'relative',
   },
   posterImage: {
     width: '100%',
@@ -324,6 +299,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#121212',
+  },
+  posterOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  posterPlayButton: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(229, 9, 20, 0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  posterPlayButtonDisabled: {
+    backgroundColor: 'rgba(56, 56, 56, 0.88)',
+  },
+  posterHint: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 12,
+    backgroundColor: 'rgba(0,0,0,0.34)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
   },
   cardContainer: {
     marginTop: -50, // Pull card up
@@ -457,21 +461,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 200,
   },
-  trailerButton: {
-    marginTop: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E50914',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignSelf: 'flex-start',
-  },
   actionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
     marginTop: 18,
   },
   secondaryButton: {
@@ -484,10 +476,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignSelf: 'flex-start',
   },
-  trailerButtonDisabled: {
-    backgroundColor: '#383838',
-  },
-  trailerButtonText: {
+  secondaryButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
     marginLeft: 8,

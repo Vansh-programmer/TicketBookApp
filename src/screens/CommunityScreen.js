@@ -248,32 +248,30 @@ const CommunityScreen = () => {
         <ScrollView scrollEnabled={false}>
           <View style={styles.header}>
             <Text style={styles.title}>Community</Text>
-            <Text style={styles.subtitle}>
-              Share reactions, post images, and keep the conversation going after the credits roll.
-            </Text>
           </View>
 
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
+              <Ionicons name="albums-outline" size={18} color="#FFFFFF" />
               <Text style={styles.statValue}>{posts.length}</Text>
-              <Text style={styles.statLabel}>Posts</Text>
             </View>
             <View style={styles.statCard}>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
               <Text style={styles.statValue}>{totalComments}</Text>
-              <Text style={styles.statLabel}>Replies</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{userLabel}</Text>
-              <Text style={styles.statLabel}>Posting as</Text>
+              <Ionicons name="person-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.statValue} numberOfLines={1}>{userLabel}</Text>
             </View>
           </View>
 
           <View style={styles.composerCard}>
-            <Text style={styles.composerTitle}>Start a discussion</Text>
+            <Text style={styles.composerTitle}>Post</Text>
             {!isBadWordsConfigured ? (
-              <Text style={styles.moderationHint}>
-                Add `EXPO_PUBLIC_BAD_WORDS_API_KEY` for API-powered censoring. A small local fallback is active until then.
-              </Text>
+              <View style={styles.moderationChip}>
+                <Ionicons name="shield-checkmark-outline" size={14} color="#D4B66E" />
+                <Text style={styles.moderationHint}>Local filter on</Text>
+              </View>
             ) : null}
             {feedError ? <Text style={styles.errorText}>{feedError}</Text> : null}
             <TextInput
@@ -286,7 +284,7 @@ const CommunityScreen = () => {
             <TextInput
               value={postText}
               onChangeText={setPostText}
-              placeholder="What are you watching, booking, or recommending?"
+              placeholder="Share something..."
               placeholderTextColor="#75757C"
               style={styles.postInput}
               multiline
@@ -329,9 +327,6 @@ const CommunityScreen = () => {
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No community posts yet</Text>
-            <Text style={styles.emptyText}>
-              Be the first one to post from this shared feed.
-            </Text>
           </View>
         )
       }
@@ -359,11 +354,6 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
   },
-  subtitle: {
-    color: '#B5B5BA',
-    marginTop: 8,
-    lineHeight: 21,
-  },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
@@ -376,16 +366,13 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    gap: 8,
   },
   statValue: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
-  },
-  statLabel: {
-    color: '#8A8A92',
-    fontSize: 12,
-    marginTop: 8,
   },
   composerCard: {
     backgroundColor: '#111113',
@@ -403,9 +390,18 @@ const styles = StyleSheet.create({
   },
   moderationHint: {
     color: '#D4B66E',
-    marginBottom: 12,
-    lineHeight: 18,
     fontSize: 12,
+  },
+  moderationChip: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    backgroundColor: 'rgba(212,182,110,0.1)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   topicInput: {
     backgroundColor: '#18181C',
@@ -585,12 +581,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '800',
-  },
-  emptyText: {
-    color: '#9C9CA4',
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
   },
 });
 

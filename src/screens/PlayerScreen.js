@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   Linking,
   Platform,
@@ -25,48 +26,15 @@ const PlayerScreen = () => {
   const {
     videoId: rawVideoId,
     title = 'Now Playing',
-    description = 'Watch directly inside the app.',
+    description = '',
     subtitle,
     badge,
   } = route.params ?? {};
+  const [playerError, setPlayerError] = useState(false);
 
   const videoId = useMemo(() => extractYouTubeVideoId(rawVideoId), [rawVideoId]);
   const playerHeight = Math.min(Dimensions.get('window').width * 0.58, 300);
-  const embedHtml = useMemo(() => {
-    if (!videoId) {
-      return '';
-    }
-
-    return `<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        background: #000;
-        height: 100%;
-        overflow: hidden;
-      }
-      .frame {
-        border: 0;
-        width: 100vw;
-        height: 100vh;
-      }
-    </style>
-  </head>
-  <body>
-    <iframe
-      class="frame"
-      src="${getYouTubeEmbedUrl(videoId)}"
-      title="${title.replace(/"/g, '&quot;')}"
-      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-      allowfullscreen
-    ></iframe>
-  </body>
-</html>`;
-  }, [title, videoId]);
+  const embedUrl = useMemo(() => (videoId ? getYouTubeEmbedUrl(videoId) : ''), [videoId]);
 
   useEffect(() => {
     if (!videoId) {
@@ -82,20 +50,31 @@ const PlayerScreen = () => {
     });
   }, [badge, description, subtitle, title, videoId]);
 
-  const handleOpenYouTube = async () => {
-    if (!videoId) {
-      return;
+  const handleWebViewNavigation = (request) => {
+    const url = request?.url || '';
+
+    if (!url || url === 'about:blank') {
+      return true;
     }
 
-    try {
-      await Linking.openURL(`https://www.youtube.com/watch?v=${videoId}`);
-    } catch (error) {
-      console.error('Unable to open YouTube:', error);
+    if (
+      url.startsWith('https://www.youtube-nocookie.com/embed/') ||
+      url.startsWith('https://www.youtube.com/embed/')
+    ) {
+      return true;
     }
+
+    Linking.openURL(url).catch((error) => {
+      console.error('Unable to open external video link:', error);
+    });
+
+    return false;
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View pointerEvents="none" style={styles.backgroundOrbPrimary} />
+      <View pointerEvents="none" style={styles.backgroundOrbSecondary} />
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
@@ -105,10 +84,10 @@ const PlayerScreen = () => {
       </View>
 
       <View style={[styles.playerShell, { height: playerHeight }]}>
-        {videoId ? (
+        {videoId && !playerError ? (
           Platform.OS === 'web' ? (
             <iframe
-              src={getYouTubeEmbedUrl(videoId)}
+              src={embedUrl}
               title={title}
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
               allowFullScreen
@@ -117,22 +96,37 @@ const PlayerScreen = () => {
           ) : (
             <NativeWebView
               originWhitelist={['*']}
-              source={{ html: embedHtml }}
+              source={{ uri: embedUrl }}
               style={styles.player}
               allowsFullscreenVideo
               allowsInlineMediaPlayback
               mediaPlaybackRequiresUserAction={false}
               javaScriptEnabled
               domStorageEnabled
+              incognito
               setSupportMultipleWindows={false}
+              startInLoadingState
+              renderLoading={() => (
+                <View style={styles.loadingState}>
+                  <ActivityIndicator size="large" color="#FFFFFF" />
+                  <Text style={styles.loadingText}>Opening player…</Text>
+                </View>
+              )}
+              onShouldStartLoadWithRequest={handleWebViewNavigation}
+              onError={() => setPlayerError(true)}
+              onHttpError={() => setPlayerError(true)}
             />
           )
         ) : (
           <View style={styles.unavailableState}>
             <Ionicons name="videocam-off-outline" size={46} color="#8B8B8B" />
-            <Text style={styles.unavailableTitle}>Video unavailable</Text>
+            <Text style={styles.unavailableTitle}>
+              {videoId ? 'In-app playback unavailable' : 'Video unavailable'}
+            </Text>
             <Text style={styles.unavailableText}>
-              This item does not have a valid YouTube source yet.
+              {videoId
+                ? 'This trailer could not be loaded right now.'
+                : 'This item does not have a valid YouTube source yet.'}
             </Text>
           </View>
         )}
@@ -142,16 +136,7 @@ const PlayerScreen = () => {
         {badge ? <Text style={styles.badge}>{badge}</Text> : null}
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        <Text style={styles.description}>{description}</Text>
-
-        <TouchableOpacity
-          style={[styles.actionButton, !videoId && styles.actionButtonDisabled]}
-          onPress={handleOpenYouTube}
-          disabled={!videoId}
-        >
-          <Ionicons name="logo-youtube" size={18} color="#FFFFFF" />
-          <Text style={styles.actionButtonText}>Open on YouTube</Text>
-        </TouchableOpacity>
+        {description ? <Text style={styles.description}>{description}</Text> : null}
       </View>
     </ScrollView>
   );
@@ -160,12 +145,30 @@ const PlayerScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#06090E',
   },
   content: {
     paddingTop: 56,
     paddingHorizontal: 16,
     paddingBottom: 32,
+  },
+  backgroundOrbPrimary: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    top: -30,
+    right: -70,
+  },
+  backgroundOrbSecondary: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    bottom: 40,
+    left: -60,
   },
   headerRow: {
     flexDirection: 'row',
@@ -179,7 +182,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#151515',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   headerTitle: {
     color: '#FFFFFF',
@@ -190,15 +195,33 @@ const styles = StyleSheet.create({
     width: 40,
   },
   playerShell: {
-    borderRadius: 22,
+    borderRadius: 28,
     overflow: 'hidden',
-    backgroundColor: '#101010',
+    backgroundColor: 'rgba(12, 14, 18, 0.88)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 18,
+    },
+    shadowOpacity: 0.24,
+    shadowRadius: 28,
   },
   player: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#090909',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#D2D6DC',
+    fontWeight: '600',
   },
   webIframe: {
     width: '100%',
@@ -226,8 +249,8 @@ const styles = StyleSheet.create({
   },
   metaCard: {
     marginTop: 18,
-    backgroundColor: '#111113',
-    borderRadius: 22,
+    backgroundColor: 'rgba(15, 18, 24, 0.86)',
+    borderRadius: 28,
     padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -254,24 +277,6 @@ const styles = StyleSheet.create({
     color: '#D0D0D0',
     lineHeight: 22,
     marginTop: 14,
-  },
-  actionButton: {
-    marginTop: 20,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E50914',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  actionButtonDisabled: {
-    backgroundColor: '#353535',
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    marginLeft: 8,
   },
 });
 
