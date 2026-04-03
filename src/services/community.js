@@ -31,6 +31,12 @@ const normalizePost = (docSnapshot) => {
     topic: data.topic || 'Movie chat',
     text: data.text || '',
     imageUri: data.imageUri || null,
+    mediaUrl: data.mediaUrl || data.imageUri || null,
+    mediaType: data.mediaType || (data.imageUri ? 'image' : null),
+    mediaLabel: data.mediaLabel || '',
+    tenorPostId: data.tenorPostId || null,
+    tenorAspectRatio: data.tenorAspectRatio || null,
+    audioTitle: data.audioTitle || '',
     likes: typeof data.likes === 'number' ? data.likes : 0,
     createdAtMs:
       data.createdAtMs ||
@@ -84,6 +90,12 @@ export const createCommunityPost = async ({
   topic,
   text,
   imageData,
+  mediaUrl,
+  mediaType,
+  mediaLabel,
+  tenorPostId,
+  tenorAspectRatio,
+  audioTitle,
 }) => {
   if (!db) {
     const error = new Error('Firebase is not configured for this build.');
@@ -97,8 +109,14 @@ export const createCommunityPost = async ({
     author,
     handle,
     topic: topic?.trim() || 'Movie chat',
-    text: text.trim(),
+    text: text?.trim() || '',
     imageUri: imageData || null,
+    mediaUrl: imageData || mediaUrl || null,
+    mediaType: imageData ? 'image' : mediaType || null,
+    mediaLabel: mediaLabel || '',
+    tenorPostId: tenorPostId || null,
+    tenorAspectRatio: tenorAspectRatio || null,
+    audioTitle: audioTitle || '',
     likes: 0,
     comments: [],
     createdAtMs,
