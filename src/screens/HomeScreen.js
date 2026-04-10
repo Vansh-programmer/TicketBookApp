@@ -147,17 +147,19 @@ const HomeScreen = () => {
     }
 
     const interval = setInterval(() => {
-      heroIndexRef.current = (heroIndexRef.current + 1) % featuredMovies.length;
-      setCurrentHeroIndex(heroIndexRef.current);
+      const nextIndex = (heroIndexRef.current + 1) % featuredMovies.length;
+      heroIndexRef.current = nextIndex;
+      setCurrentHeroIndex(nextIndex);
 
-      heroListRef.current?.scrollToOffset({
-        offset: heroIndexRef.current * heroSnapInterval,
+      heroListRef.current?.scrollToIndex({
+        index: nextIndex,
         animated: true,
+        viewPosition: 0,
       });
     }, 3600);
 
     return () => clearInterval(interval);
-  }, [featuredMovies, heroSnapInterval]);
+  }, [featuredMovies]);
 
   const handleToggleMovieLike = async (event, movie) => {
     event?.stopPropagation?.();
@@ -345,8 +347,8 @@ const HomeScreen = () => {
               renderItem={renderFeaturedMovie}
               keyExtractor={(item) => item.id.toString()}
               horizontal
-              pagingEnabled
               decelerationRate="fast"
+              disableIntervalMomentum
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.heroListContent}
               ItemSeparatorComponent={() => <View style={{ width: HERO_CARD_GAP }} />}
@@ -362,6 +364,12 @@ const HomeScreen = () => {
                 offset: heroSnapInterval * index,
                 index,
               })}
+              onScrollToIndexFailed={({ index }) => {
+                heroListRef.current?.scrollToOffset({
+                  offset: heroSnapInterval * index,
+                  animated: true,
+                });
+              }}
             />
             <View style={styles.heroDots}>
               {featuredMovies.map((movie, index) => (

@@ -1,23 +1,29 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Image,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import AnimatedPressable from '../components/AnimatedPressable';
+import GlassSurface from '../components/GlassSurface';
+import NeonGlowButton from '../components/NeonGlowButton';
+import ShimmerSkeletonCard from '../components/ShimmerSkeletonCard';
 import { auth } from '../config/firebase';
 import { censorText, isBadWordsConfigured } from '../services/profanity';
 import {
   addCommentToPost,
   createCommunityPost,
+  deleteCommunityPost,
   formatRelativeTime,
   likeCommunityPost,
   subscribeToCommunityPosts,
@@ -211,6 +217,124 @@ const buildTenorEmbedFromPost = (post) => {
   };
 };
 
+const getCurrentUserIdentity = () => {
+  const email = auth?.currentUser?.email?.trim().toLowerCase();
+  return auth?.currentUser?.uid || email || '';
+};
+
+const getDisplayValue = (value, fallback = '') => {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      return fallback;
+    }
+
+    if (trimmedValue.startsWith('{') || trimmedValue.startsWith('[')) {
+      try {
+        const parsedValue = JSON.parse(trimmedValue);
+        return getDisplayValue(parsedValue, fallback);
+      } catch (error) {
+        return trimmedValue;
+      }
+    }
+
+    return trimmedValue;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    const nextValue = value
+      .map((entry) => getDisplayValue(entry))
+      .filter(Boolean)
+      .join(' ');
+
+    return nextValue || fallback;
+  }
+
+  if (value && typeof value === 'object') {
+    const preferredKeys = [
+      'text',
+      'message',
+      'content',
+      'body',
+      'comment',
+      'commentText',
+      'reply',
+      'description',
+      'censored_content',
+      'censored_string',
+      'result',
+      'value',
+      'label',
+      'name',
+      'title',
+    ];
+
+    for (const key of preferredKeys) {
+      const nextValue = getDisplayValue(value[key]);
+      if (nextValue) {
+        return nextValue;
+      }
+    }
+
+    const nextValue = Object.entries(value)
+      .filter(([key]) => !['id', 'author', 'authorId', 'createdAt', 'createdAtMs', 'uid', 'userId'].includes(key))
+      .map(([, entry]) => getDisplayValue(entry))
+      .filter(Boolean)
+      .join(' ');
+
+    if (nextValue) {
+      return nextValue;
+    }
+  }
+
+  return fallback;
+};
+
+const CommunityLoadingState = () => (
+  <View style={styles.loadingWrap}>
+    <Animated.View entering={FadeInDown.duration(500)} style={styles.header}>
+      <Text style={styles.title}>Community</Text>
+      <Text style={styles.heroCaption}>Signal-rich conversations for movie people.</Text>
+    </Animated.View>
+
+    <View style={styles.statsRow}>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <GlassSurface key={`stat-skeleton-${index}`} style={styles.statCard}>
+          <View style={styles.statSkeletonInner}>
+            <View style={styles.statSkeletonIcon} />
+            <View style={styles.statSkeletonValue} />
+          </View>
+        </GlassSurface>
+      ))}
+    </View>
+
+    <GlassSurface style={styles.composerCard}>
+      <View style={styles.composerLoadingInner}>
+        <View style={styles.topicSkeleton} />
+        <View style={styles.composerLineLong} />
+        <View style={styles.composerLineShort} />
+        <View style={styles.composerActionRow}>
+          <View style={styles.composerActionGhost} />
+          <View style={styles.composerActionGhostPrimary} />
+        </View>
+      </View>
+    </GlassSurface>
+
+    {Array.from({ length: 3 }).map((_, index) => (
+      <Animated.View
+        key={`community-skeleton-${index}`}
+        entering={FadeInUp.delay(index * 90).duration(420)}
+      >
+        <ShimmerSkeletonCard />
+      </Animated.View>
+    ))}
+  </View>
+);
+
 const CommunityScreen = () => {
   const [posts, setPosts] = useState([]);
   const [postTopic, setPostTopic] = useState('');
@@ -231,6 +355,7 @@ const CommunityScreen = () => {
     auth?.currentUser?.displayName ||
     auth?.currentUser?.email?.split('@')[0] ||
     'MovieMate';
+  const currentUserLikeId = getCurrentUserIdentity();
 
   useEffect(() => {
     const unsubscribe = subscribeToCommunityPosts(
@@ -414,6 +539,7 @@ const CommunityScreen = () => {
       ]);
 
       await createCommunityPost({
+        authorId: currentUserLikeId,
         author: userLabel,
         handle: `@${userLabel.toLowerCase().replace(/\s+/g, '')}`,
         topic: censoredTopic,
@@ -467,34 +593,63 @@ const CommunityScreen = () => {
     }
   };
 
+  const requestDeletePost = (post) => {
+    const confirmDelete = async () => {
+      try {
+        await deleteCommunityPost(post.id);
+        setFeedError('');
+      } catch (error) {
+        console.error('Unable to delete post:', error);
+        setFeedError(
+          error?.code === 'permission-denied'
+            ? 'Deleting is blocked by Firestore rules.'
+            : 'Unable to delete this post right now.',
+        );
+      }
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      if (window.confirm('Delete this post?')) {
+        void confirmDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Delete post', 'Delete this post?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void confirmDelete();
+        },
+      },
+    ]);
+  };
+
   const renderMediaAttachment = (item, theme) => {
     if (item.mediaType === 'audio' && item.mediaUrl) {
       const isPlaying = activeAudioPostId === item.id;
 
       return (
-        <TouchableOpacity
-          style={[
-            styles.audioCard,
-            {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
-          ]}
-          onPress={() => toggleAudioPost(item)}
-        >
-          <View style={[styles.audioIconWrap, { backgroundColor: theme.accentSoft }]}>
-            <Ionicons name={isPlaying ? 'pause' : 'play'} size={20} color={theme.accent} />
-          </View>
-          <View style={styles.audioMeta}>
-            <Text style={styles.audioTitle} numberOfLines={1}>
-              {item.audioTitle || item.mediaLabel || 'Community sound'}
-            </Text>
-            <Text style={[styles.audioHint, { color: theme.muted }]}>
-              {isPlaying ? 'Tap to stop' : 'Tap to play'}
-            </Text>
-          </View>
-          <Ionicons name="musical-notes-outline" size={18} color={theme.accent} />
-        </TouchableOpacity>
+        <AnimatedPressable onPress={() => toggleAudioPost(item)} style={styles.audioCard}>
+          <GlassSurface style={styles.audioCardSurface}>
+            <View style={styles.audioCardInner}>
+              <View style={[styles.audioIconWrap, { backgroundColor: theme.accentSoft }]}>
+                <Ionicons name={isPlaying ? 'pause' : 'play'} size={20} color={theme.accent} />
+              </View>
+              <View style={styles.audioMeta}>
+                <Text style={styles.audioTitle} numberOfLines={1}>
+                  {item.audioTitle || item.mediaLabel || 'Community sound'}
+                </Text>
+                <Text style={[styles.audioHint, { color: theme.muted }]}>
+                  {isPlaying ? 'Tap to stop' : 'Tap to play'}
+                </Text>
+              </View>
+              <Ionicons name="musical-notes-outline" size={18} color={theme.accent} />
+            </View>
+          </GlassSurface>
+        </AnimatedPressable>
       );
     }
 
@@ -504,7 +659,7 @@ const CommunityScreen = () => {
       const tenorEmbedHtml = buildTenorEmbedHtml(tenorEmbed);
 
       return (
-        <View style={[styles.tenorShell, { aspectRatio }]}>
+        <GlassSurface style={[styles.tenorShell, { aspectRatio }]}>
           {Platform.OS === 'web' ? (
             <iframe
               title={tenorEmbed.title}
@@ -522,7 +677,7 @@ const CommunityScreen = () => {
               automaticallyAdjustContentInsets={false}
             />
           )}
-        </View>
+        </GlassSurface>
       );
     }
 
@@ -530,7 +685,7 @@ const CommunityScreen = () => {
       const mediaUri = item.mediaUrl || item.imageUri;
 
       return (
-        <View>
+        <View style={styles.mediaWrap}>
           <Image source={{ uri: mediaUri }} style={styles.postImage} resizeMode="cover" />
           {item.mediaType === 'gif' ? (
             <View style={[styles.mediaTypeChip, { backgroundColor: theme.accentSoft }]}>
@@ -544,129 +699,179 @@ const CommunityScreen = () => {
     return null;
   };
 
-  const renderPost = ({ item }) => {
+  const renderPost = ({ item, index }) => {
     const isExpanded = expandedPosts[item.id];
     const theme = getPostTheme(item);
+    const hasLikedPost = item.likedBy?.includes(currentUserLikeId);
+    const canDeletePost =
+      Boolean(currentUserLikeId) &&
+      (item.authorId === currentUserLikeId ||
+        item.handle === `@${userLabel.toLowerCase().replace(/\s+/g, '')}`);
 
     return (
-      <View
-        style={[
-          styles.postCard,
-          {
-            backgroundColor: theme.card,
-            borderColor: theme.border,
-          },
-        ]}
+      <Animated.View
+        entering={FadeInUp.delay(120 + index * 85).duration(520)}
+        style={styles.postItemWrap}
       >
-        <View style={styles.postHeader}>
-          <View style={styles.authorBlock}>
-            <Text style={styles.author}>{item.author}</Text>
-            <Text style={[styles.handle, { color: theme.muted }]}>
-              {item.handle} • {formatRelativeTime(item.createdAtMs)}
-            </Text>
-          </View>
+        <GlassSurface style={styles.postCard}>
+          <LinearGradient
+            colors={[`${theme.accent}7A`, 'rgba(255,255,255,0)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.postTopAccent}
+          />
 
-          <View style={[styles.interactionIndicator, { backgroundColor: theme.accentSoft }]}>
-            <View style={[styles.interactionIndicatorDot, { backgroundColor: theme.accent }]} />
-          </View>
-        </View>
-
-        <View style={styles.topicRow}>
-          <View
-            style={[
-              styles.topicPill,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-              },
-            ]}
-          >
-            <Text style={[styles.topicPillText, { color: theme.accent }]}>{item.topic}</Text>
-          </View>
-        </View>
-
-        {item.text ? <Text style={styles.postText}>{item.text}</Text> : null}
-        {renderMediaAttachment(item, theme)}
-
-        <View style={[styles.postActions, { borderTopColor: theme.border }]}>
-          <TouchableOpacity
-            style={styles.postActionButton}
-            onPress={async () => {
-              try {
-                await likeCommunityPost(item.id);
-              } catch (error) {
-                console.error('Unable to like post:', error);
-                setFeedError(
-                  error?.code === 'permission-denied'
-                    ? 'Liking is blocked by Firestore rules.'
-                    : 'Unable to like this post right now.',
-                );
-              }
-            }}
-          >
-            <View style={[styles.postActionIcon, { backgroundColor: theme.accentSoft }]}>
-              <Ionicons name="heart" size={16} color={theme.accent} />
-            </View>
-            <Text style={styles.postActionText}>{item.likes}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.postActionButton}
-            onPress={() =>
-              setExpandedPosts((current) => ({
-                ...current,
-                [item.id]: !current[item.id],
-              }))
-            }
-          >
-            <View style={[styles.postActionIcon, { backgroundColor: theme.surface }]}>
-              <Ionicons name="chatbubble-ellipses-outline" size={16} color={theme.accent} />
-            </View>
-            <Text style={styles.postActionText}>{item.comments.length}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {isExpanded ? (
-          <View style={[styles.commentsSection, { borderTopColor: theme.border }]}>
-            {item.comments.map((comment) => (
-              <View
-                key={comment.id}
-                style={[
-                  styles.commentBubble,
-                  {
-                    backgroundColor: theme.surface,
-                    borderColor: theme.border,
-                  },
-                ]}
-              >
-                <Text style={styles.commentAuthor}>{comment.author}</Text>
-                <Text style={styles.commentText}>{comment.text}</Text>
+          <View style={styles.postInner}>
+            <View style={styles.postHeader}>
+              <View style={styles.authorBlock}>
+                <Text style={styles.author}>{item.author}</Text>
+                <Text style={[styles.handle, { color: theme.muted }]}>
+                  {item.handle} • {formatRelativeTime(item.createdAtMs)}
+                </Text>
               </View>
-            ))}
 
-            <View style={styles.commentComposer}>
-              <TextInput
-                value={commentDrafts[item.id] || ''}
-                onChangeText={(value) =>
-                  setCommentDrafts((current) => ({
+              <View style={[styles.interactionIndicator, { backgroundColor: theme.accentSoft }]}>
+                <View style={[styles.interactionIndicatorDot, { backgroundColor: theme.accent }]} />
+              </View>
+            </View>
+
+            <View style={styles.topicRow}>
+              <LinearGradient
+                colors={[`${theme.accent}26`, 'rgba(255,255,255,0.03)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.topicPill}
+              >
+                <Text style={[styles.topicPillText, { color: theme.accent }]}>{item.topic}</Text>
+              </LinearGradient>
+            </View>
+
+            {item.text ? <Text style={styles.postText}>{item.text}</Text> : null}
+            {renderMediaAttachment(item, theme)}
+
+            <View style={styles.postActions}>
+              <AnimatedPressable
+                style={styles.postActionButton}
+                onPress={async () => {
+                  if (hasLikedPost) {
+                    return;
+                  }
+
+                  try {
+                    await likeCommunityPost(item.id, currentUserLikeId);
+                  } catch (error) {
+                    console.error('Unable to like post:', error);
+                    setFeedError(
+                      error?.code === 'auth/missing-user'
+                        ? 'Please sign in to like posts.'
+                        : error?.code === 'permission-denied'
+                        ? 'Liking is blocked by Firestore rules.'
+                        : 'Unable to like this post right now.',
+                    );
+                  }
+                }}
+                disabled={hasLikedPost}
+              >
+                <View
+                  style={[
+                    styles.postActionIcon,
+                    { backgroundColor: hasLikedPost ? theme.accent : theme.accentSoft },
+                  ]}
+                >
+                  <Ionicons
+                    name={hasLikedPost ? 'heart' : 'heart-outline'}
+                    size={16}
+                    color={hasLikedPost ? '#09090B' : theme.accent}
+                  />
+                </View>
+                <Text style={styles.postActionText}>{item.likes}</Text>
+              </AnimatedPressable>
+
+              <AnimatedPressable
+                style={styles.postActionButton}
+                onPress={() =>
+                  setExpandedPosts((current) => ({
                     ...current,
-                    [item.id]: value,
+                    [item.id]: !current[item.id],
                   }))
                 }
-                placeholder="Join the discussion"
-                placeholderTextColor="#75757C"
-                style={[styles.commentInput, { backgroundColor: theme.surface }]}
-              />
-              <TouchableOpacity
-                style={[styles.commentSendButton, { backgroundColor: theme.accent }]}
-                onPress={() => submitComment(item.id)}
               >
-                <Ionicons name="send" size={16} color="#09090B" />
-              </TouchableOpacity>
+                <View style={[styles.postActionIcon, { backgroundColor: theme.surface }]}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={16} color={theme.accent} />
+                </View>
+                <Text style={styles.postActionText}>{item.comments.length}</Text>
+              </AnimatedPressable>
+
+              {canDeletePost ? (
+                <AnimatedPressable
+                  style={styles.postActionButton}
+                  onPress={() => requestDeletePost(item)}
+                >
+                  <View
+                    style={[
+                      styles.postActionIcon,
+                      { backgroundColor: 'rgba(229, 9, 20, 0.16)' },
+                    ]}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#E50914" />
+                  </View>
+                  <Text style={styles.postActionText}>Delete</Text>
+                </AnimatedPressable>
+              ) : null}
             </View>
+
+            {isExpanded ? (
+              <View style={styles.commentsSection}>
+                {item.comments.length === 0 ? (
+                  <Text style={[styles.emptyCommentsText, { color: theme.muted }]}>
+                    No comments yet.
+                  </Text>
+                ) : null}
+                {item.comments.map((comment) => (
+                  <GlassSurface key={comment.id} style={styles.commentBubble}>
+                    <View style={styles.commentBubbleInner}>
+                      <Text style={styles.commentAuthor}>
+                        {getDisplayValue(comment.author, 'MovieMate')}
+                      </Text>
+                      <Text style={styles.commentText}>{getDisplayValue(comment.text, '')}</Text>
+                    </View>
+                  </GlassSurface>
+                ))}
+
+                <View style={styles.commentComposer}>
+                  <GlassSurface style={styles.commentInputShell}>
+                    <TextInput
+                      value={commentDrafts[item.id] || ''}
+                      onChangeText={(value) =>
+                        setCommentDrafts((current) => ({
+                          ...current,
+                          [item.id]: value,
+                        }))
+                      }
+                      placeholder="Join the discussion"
+                      placeholderTextColor="#7A7C88"
+                      style={styles.commentInput}
+                    />
+                  </GlassSurface>
+                  <AnimatedPressable
+                    style={styles.commentSendButtonWrap}
+                    onPress={() => submitComment(item.id)}
+                  >
+                    <LinearGradient
+                      colors={[theme.accent, '#FFFFFF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.commentSendButton}
+                    >
+                      <Ionicons name="send" size={16} color="#09090B" />
+                    </LinearGradient>
+                  </AnimatedPressable>
+                </View>
+              </View>
+            ) : null}
           </View>
-        ) : null}
-      </View>
+        </GlassSurface>
+      </Animated.View>
     );
   };
 
@@ -677,81 +882,116 @@ const CommunityScreen = () => {
       data={posts}
       renderItem={renderPost}
       keyExtractor={(item) => item.id}
-      ListHeaderComponent={
-        <ScrollView scrollEnabled={false}>
-          <View style={styles.header}>
+      ListHeaderComponent={loadingFeed && posts.length === 0 ? null : (
+        <View>
+          <Animated.View entering={FadeInDown.duration(520)} style={styles.header}>
             <Text style={styles.title}>Community</Text>
-            <Text style={styles.subtitle}>Reactions shape the mood of each post.</Text>
-          </View>
+            <Text style={styles.heroCaption}>True-black conversations, neon energy, zero noise.</Text>
+          </Animated.View>
 
           <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Ionicons name="albums-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.statValue}>{posts.length}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.statValue}>{totalComments}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Ionicons name="person-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.statValue} numberOfLines={1}>
-                {userLabel}
-              </Text>
-            </View>
+            <Animated.View entering={FadeInUp.delay(50).duration(500)} style={styles.statCardWrap}>
+              <GlassSurface style={styles.statCard}>
+                <View style={styles.statInner}>
+                  <LinearGradient colors={['#34D399', '#0EA5E9']} style={styles.statIconAura}>
+                    <Ionicons name="albums-outline" size={16} color="#FFFFFF" />
+                  </LinearGradient>
+                  <Text style={styles.statValue}>{posts.length}</Text>
+                  <Text style={styles.statLabel}>Posts</Text>
+                </View>
+              </GlassSurface>
+            </Animated.View>
+            <Animated.View entering={FadeInUp.delay(110).duration(500)} style={styles.statCardWrap}>
+              <GlassSurface style={styles.statCard}>
+                <View style={styles.statInner}>
+                  <LinearGradient colors={['#60A5FA', '#C084FC']} style={styles.statIconAura}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
+                  </LinearGradient>
+                  <Text style={styles.statValue}>{totalComments}</Text>
+                  <Text style={styles.statLabel}>Replies</Text>
+                </View>
+              </GlassSurface>
+            </Animated.View>
+            <Animated.View entering={FadeInUp.delay(170).duration(500)} style={styles.statCardWrap}>
+              <GlassSurface style={styles.statCard}>
+                <View style={styles.statInner}>
+                  <LinearGradient colors={['#F472B6', '#F59E0B']} style={styles.statIconAura}>
+                    <Ionicons name="person-outline" size={16} color="#FFFFFF" />
+                  </LinearGradient>
+                  <Text style={styles.statValue} numberOfLines={1}>
+                    {userLabel}
+                  </Text>
+                  <Text style={styles.statLabel}>You</Text>
+                </View>
+              </GlassSurface>
+            </Animated.View>
           </View>
 
-          <View style={styles.composerCard}>
+          <Animated.View entering={FadeInUp.delay(220).duration(520)}>
+            <GlassSurface style={styles.composerCard}>
+              <LinearGradient
+                pointerEvents="none"
+                colors={['rgba(42,250,223,0.22)', 'rgba(76,131,255,0.08)', 'rgba(0,0,0,0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.composerAccent}
+              />
             <View style={styles.composerHeaderRow}>
               <Text style={styles.composerTitle}>Post</Text>
               {!isBadWordsConfigured ? (
-                <View style={styles.moderationChip}>
+                <GlassSurface style={styles.moderationChip}>
                   <Ionicons name="shield-checkmark-outline" size={14} color="#D4B66E" />
                   <Text style={styles.moderationHint}>Local filter on</Text>
-                </View>
+                </GlassSurface>
               ) : null}
             </View>
 
             {feedError ? <Text style={styles.errorText}>{feedError}</Text> : null}
 
-            <TextInput
-              value={postTopic}
-              onChangeText={setPostTopic}
-              placeholder="Topic"
-              placeholderTextColor="#75757C"
-              style={styles.topicInput}
-            />
-            <TextInput
-              value={postText}
-              onChangeText={setPostText}
-              placeholder="Share something..."
-              placeholderTextColor="#75757C"
-              style={styles.postInput}
-              multiline
-            />
-            <TextInput
-              value={postMediaInput}
-              onChangeText={setPostMediaInput}
-              placeholder="Tenor, GIF, image, or audio link"
-              placeholderTextColor="#75757C"
-              style={styles.mediaInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <GlassSurface style={styles.inputShell}>
+              <TextInput
+                value={postTopic}
+                onChangeText={setPostTopic}
+                placeholder="Topic"
+                placeholderTextColor="#75757C"
+                style={styles.topicInput}
+              />
+            </GlassSurface>
+            <GlassSurface style={styles.textAreaShell}>
+              <TextInput
+                value={postText}
+                onChangeText={setPostText}
+                placeholder="Share something..."
+                placeholderTextColor="#75757C"
+                style={styles.postInput}
+                multiline
+              />
+            </GlassSurface>
+            <GlassSurface style={styles.inputShell}>
+              <TextInput
+                value={postMediaInput}
+                onChangeText={setPostMediaInput}
+                placeholder="Tenor, GIF, image, or audio link"
+                placeholderTextColor="#75757C"
+                style={styles.mediaInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </GlassSurface>
 
             <View style={styles.mediaHintRow}>
-              <View style={styles.mediaHintChip}>
+              <GlassSurface style={styles.mediaHintChip}>
                 <Ionicons name="sparkles-outline" size={14} color="#9AC6FF" />
                 <Text style={styles.mediaHintText}>Tenor</Text>
-              </View>
-              <View style={styles.mediaHintChip}>
+              </GlassSurface>
+              <GlassSurface style={styles.mediaHintChip}>
                 <Ionicons name="image-outline" size={14} color="#A8FFCC" />
                 <Text style={styles.mediaHintText}>GIF</Text>
-              </View>
-              <View style={styles.mediaHintChip}>
+              </GlassSurface>
+              <GlassSurface style={styles.mediaHintChip}>
                 <Ionicons name="musical-notes-outline" size={14} color="#FFB6B6" />
                 <Text style={styles.mediaHintText}>Sound</Text>
-              </View>
+              </GlassSurface>
             </View>
 
             {selectedImage?.uri ? (
@@ -759,43 +999,42 @@ const CommunityScreen = () => {
             ) : null}
 
             <View style={styles.composerActions}>
-              <TouchableOpacity style={styles.secondaryButton} onPress={pickImage}>
-                <Ionicons name="image-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.secondaryButtonText}>
-                  {selectedImage?.uri ? 'Change image' : 'Add image'}
-                </Text>
-              </TouchableOpacity>
+              <AnimatedPressable style={styles.secondaryButtonWrap} onPress={pickImage}>
+                <GlassSurface style={styles.secondaryButton}>
+                  <View style={styles.secondaryButtonInner}>
+                    <Ionicons name="image-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.secondaryButtonText}>
+                      {selectedImage?.uri ? 'Change image' : 'Add image'}
+                    </Text>
+                  </View>
+                </GlassSurface>
+              </AnimatedPressable>
 
-              <TouchableOpacity
-                style={[
-                  styles.primaryButton,
-                  (!postText.trim() && !selectedImage?.dataUri && !postMediaInput.trim() || submittingPost) &&
-                    styles.primaryButtonDisabled,
-                ]}
+              <NeonGlowButton
+                style={styles.primaryButtonWrap}
                 onPress={submitPost}
+                iconName="paper-plane-outline"
+                label={submittingPost ? 'Posting...' : 'Post'}
                 disabled={
                   (!postText.trim() && !selectedImage?.dataUri && !postMediaInput.trim()) ||
                   submittingPost
                 }
-              >
-                <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.primaryButtonText}>
-                  {submittingPost ? 'Posting...' : 'Post'}
-                </Text>
-              </TouchableOpacity>
+              />
             </View>
-          </View>
-        </ScrollView>
-      }
+            </GlassSurface>
+          </Animated.View>
+        </View>
+      )}
       ListEmptyComponent={
         loadingFeed ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>Loading community...</Text>
-          </View>
+          <CommunityLoadingState />
         ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No community posts yet</Text>
-          </View>
+          <GlassSurface style={styles.emptyState}>
+            <View style={styles.emptyStateInner}>
+              <Text style={styles.emptyTitle}>No community posts yet</Text>
+              <Text style={styles.emptyBody}>Be the first to drop a thought, clip, or reaction.</Text>
+            </View>
+          </GlassSurface>
         )
       }
       showsVerticalScrollIndicator={false}
@@ -806,61 +1045,105 @@ const CommunityScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#000000',
   },
   content: {
     paddingTop: 58,
-    paddingBottom: 36,
+    paddingBottom: 40,
     paddingHorizontal: 16,
-    gap: 14,
+  },
+  loadingWrap: {
+    paddingBottom: 24,
   },
   header: {
     marginBottom: 18,
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: '800',
+    letterSpacing: 0.4,
   },
-  subtitle: {
-    color: '#8C8E95',
+  heroCaption: {
+    color: '#9DA3B4',
     marginTop: 8,
     fontSize: 14,
+    lineHeight: 21,
   },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
     marginBottom: 18,
   },
+  statCardWrap: {
+    flex: 1,
+  },
   statCard: {
     flex: 1,
-    backgroundColor: '#121214',
     borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  statInner: {
+    minHeight: 104,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+  },
+  statIconAura: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
   statValue: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
+    textAlign: 'center',
+  },
+  statLabel: {
+    color: '#8F97AA',
+    fontSize: 12,
+    marginTop: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  statSkeletonInner: {
+    minHeight: 104,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  statSkeletonIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  statSkeletonValue: {
+    width: 52,
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   composerCard: {
-    backgroundColor: '#111113',
     borderRadius: 24,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
     marginBottom: 18,
+  },
+  composerAccent: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
   },
   composerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 14,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   composerTitle: {
     color: '#FFFFFF',
@@ -876,50 +1159,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(212,182,110,0.1)',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
+  errorText: {
+    color: '#FF8E8E',
+    marginBottom: 12,
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  inputShell: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 16,
+  },
+  textAreaShell: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 20,
+  },
   topicInput: {
-    backgroundColor: '#18181C',
-    borderRadius: 14,
     color: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    marginBottom: 12,
+    backgroundColor: 'transparent',
   },
   postInput: {
     minHeight: 112,
-    backgroundColor: '#18181C',
-    borderRadius: 18,
     color: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 14,
     textAlignVertical: 'top',
+    backgroundColor: 'transparent',
   },
   mediaInput: {
-    backgroundColor: '#18181C',
-    borderRadius: 14,
     color: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    marginTop: 12,
+    backgroundColor: 'transparent',
   },
   mediaHintRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 12,
+    marginTop: 2,
+    marginHorizontal: 16,
   },
   mediaHintChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: '#18181C',
   },
   mediaHintText: {
     color: '#D7D7DC',
@@ -927,58 +1220,90 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   selectedImagePreview: {
-    width: '100%',
+    alignSelf: 'stretch',
     height: 190,
     borderRadius: 18,
     marginTop: 14,
+    marginHorizontal: 16,
   },
   composerActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     gap: 10,
-    marginTop: 14,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  secondaryButtonWrap: {
+    flex: 1,
+  },
+  primaryButtonWrap: {
+    flex: 1,
   },
   secondaryButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#1A1A1F',
+    borderRadius: 18,
+  },
+  secondaryButtonInner: {
+    minHeight: 52,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
   },
   secondaryButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
     marginLeft: 8,
   },
-  primaryButton: {
-    flex: 1,
+  composerLoadingInner: {
+    padding: 16,
+    gap: 12,
+  },
+  topicSkeleton: {
+    width: '36%',
+    height: 16,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  composerLineLong: {
+    width: '100%',
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  composerLineShort: {
+    width: '100%',
     height: 48,
-    borderRadius: 14,
-    backgroundColor: '#E50914',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  composerActionRow: {
     flexDirection: 'row',
+    gap: 12,
   },
-  primaryButtonDisabled: {
-    backgroundColor: '#37373C',
+  composerActionGhost: {
+    flex: 1,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  errorText: {
-    color: '#FF8E8E',
-    marginBottom: 12,
-    lineHeight: 20,
+  composerActionGhostPrimary: {
+    flex: 1,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: 'rgba(74,144,255,0.2)',
   },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    marginLeft: 8,
+  postItemWrap: {
+    marginBottom: 14,
   },
   postCard: {
     borderRadius: 24,
+  },
+  postTopAccent: {
+    height: 1.5,
+    width: '100%',
+  },
+  postInner: {
     padding: 16,
-    borderWidth: 1,
-    marginBottom: 14,
   },
   postHeader: {
     flexDirection: 'row',
@@ -987,10 +1312,6 @@ const styles = StyleSheet.create({
   },
   authorBlock: {
     flex: 1,
-  },
-  topicRow: {
-    alignItems: 'center',
-    marginTop: 12,
   },
   author: {
     color: '#FFFFFF',
@@ -1003,8 +1324,8 @@ const styles = StyleSheet.create({
   },
   interactionIndicator: {
     borderRadius: 999,
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1013,11 +1334,14 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 999,
   },
+  topicRow: {
+    alignItems: 'flex-start',
+    marginTop: 12,
+  },
   topicPill: {
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderWidth: 1,
     minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1026,22 +1350,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
+    letterSpacing: 0.4,
   },
   postText: {
-    color: '#ECECEF',
+    color: '#E5E7EE',
     marginTop: 14,
-    lineHeight: 21,
+    lineHeight: 22,
+  },
+  mediaWrap: {
+    marginTop: 14,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ffffff22',
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   postImage: {
     width: '100%',
     height: 232,
-    borderRadius: 18,
-    marginTop: 14,
   },
   mediaTypeChip: {
     position: 'absolute',
-    top: 24,
-    right: 10,
+    top: 12,
+    right: 12,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1053,25 +1384,27 @@ const styles = StyleSheet.create({
   tenorShell: {
     width: '100%',
     marginTop: 14,
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#0F1012',
   },
   tenorFrame: {
     width: '100%',
     height: '100%',
     borderWidth: 0,
-    backgroundColor: '#0F1012',
+    backgroundColor: 'transparent',
   },
   tenorWebView: {
     flex: 1,
-    backgroundColor: '#0F1012',
+    backgroundColor: 'transparent',
   },
   audioCard: {
     marginTop: 14,
-    borderRadius: 18,
+  },
+  audioCardSurface: {
+    borderRadius: 20,
+  },
+  audioCardInner: {
     padding: 14,
-    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -1097,10 +1430,12 @@ const styles = StyleSheet.create({
   },
   postActions: {
     flexDirection: 'row',
-    gap: 18,
-    marginTop: 14,
+    flexWrap: 'wrap',
+    gap: 14,
+    marginTop: 16,
     paddingTop: 14,
     borderTopWidth: 1,
+    borderTopColor: '#ffffff14',
   },
   postActionButton: {
     flexDirection: 'row',
@@ -1122,12 +1457,18 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderTopWidth: 1,
     paddingTop: 14,
+    borderTopColor: '#ffffff14',
+  },
+  emptyCommentsText: {
+    marginBottom: 10,
+    lineHeight: 19,
   },
   commentBubble: {
-    borderRadius: 16,
-    padding: 12,
     marginBottom: 10,
-    borderWidth: 1,
+    borderRadius: 18,
+  },
+  commentBubbleInner: {
+    padding: 12,
   },
   commentAuthor: {
     color: '#FFFFFF',
@@ -1135,40 +1476,54 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   commentText: {
-    color: '#C8C8CD',
+    color: '#CED3DD',
     lineHeight: 19,
   },
   commentComposer: {
     flexDirection: 'row',
     gap: 10,
+    alignItems: 'center',
+  },
+  commentInputShell: {
+    flex: 1,
+    borderRadius: 16,
   },
   commentInput: {
     flex: 1,
-    borderRadius: 14,
     color: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 12,
+    backgroundColor: 'transparent',
+  },
+  commentSendButtonWrap: {
+    width: 48,
+    height: 48,
   },
   commentSendButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyState: {
-    backgroundColor: '#111113',
     borderRadius: 22,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-    alignItems: 'center',
     marginBottom: 10,
+  },
+  emptyStateInner: {
+    alignItems: 'center',
+    padding: 22,
   },
   emptyTitle: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '800',
+  },
+  emptyBody: {
+    color: '#9198AA',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 
