@@ -73,8 +73,6 @@ const PlayerScreen = () => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View pointerEvents="none" style={styles.backgroundOrbPrimary} />
-      <View pointerEvents="none" style={styles.backgroundOrbSecondary} />
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
@@ -152,24 +150,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 32,
   },
-  backgroundOrbPrimary: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    top: -30,
-    right: -70,
-  },
-  backgroundOrbSecondary: {
-    position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    bottom: 40,
-    left: -60,
-  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -179,7 +159,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -195,7 +175,7 @@ const styles = StyleSheet.create({
     width: 40,
   },
   playerShell: {
-    borderRadius: 28,
+    borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: 'rgba(12, 14, 18, 0.88)',
     borderWidth: 1,
@@ -250,7 +230,7 @@ const styles = StyleSheet.create({
   metaCard: {
     marginTop: 18,
     backgroundColor: 'rgba(15, 18, 24, 0.86)',
-    borderRadius: 28,
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -260,7 +240,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0,
     marginBottom: 10,
   },
   title: {

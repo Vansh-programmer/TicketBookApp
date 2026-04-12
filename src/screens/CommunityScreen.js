@@ -298,7 +298,7 @@ const CommunityLoadingState = () => (
   <View style={styles.loadingWrap}>
     <Animated.View entering={FadeInDown.duration(500)} style={styles.header}>
       <Text style={styles.title}>Community</Text>
-      <Text style={styles.heroCaption}>Signal-rich conversations for movie people.</Text>
+      <Text style={styles.heroCaption}>Movie discussions.</Text>
     </Animated.View>
 
     <View style={styles.statsRow}>
@@ -886,7 +886,7 @@ const CommunityScreen = () => {
         <View>
           <Animated.View entering={FadeInDown.duration(520)} style={styles.header}>
             <Text style={styles.title}>Community</Text>
-            <Text style={styles.heroCaption}>True-black conversations, neon energy, zero noise.</Text>
+            <Text style={styles.heroCaption}>Posts, reactions, and media from the community.</Text>
           </Animated.View>
 
           <View style={styles.statsRow}>
@@ -981,7 +981,7 @@ const CommunityScreen = () => {
 
             <View style={styles.mediaHintRow}>
               <GlassSurface style={styles.mediaHintChip}>
-                <Ionicons name="sparkles-outline" size={14} color="#9AC6FF" />
+                <Ionicons name="film-outline" size={14} color="#9AC6FF" />
                 <Text style={styles.mediaHintText}>Tenor</Text>
               </GlassSurface>
               <GlassSurface style={styles.mediaHintChip}>
@@ -1032,7 +1032,7 @@ const CommunityScreen = () => {
           <GlassSurface style={styles.emptyState}>
             <View style={styles.emptyStateInner}>
               <Text style={styles.emptyTitle}>No community posts yet</Text>
-              <Text style={styles.emptyBody}>Be the first to drop a thought, clip, or reaction.</Text>
+              <Text style={styles.emptyBody}>Start the first discussion.</Text>
             </View>
           </GlassSurface>
         )
@@ -1080,7 +1080,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 8,
   },
   statInner: {
     minHeight: 104,
@@ -1092,7 +1092,7 @@ const styles = StyleSheet.create({
   statIconAura: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -1108,7 +1108,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   statSkeletonInner: {
     minHeight: 104,
@@ -1119,22 +1119,22 @@ const styles = StyleSheet.create({
   statSkeletonIcon: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   statSkeletonValue: {
     width: 52,
     height: 12,
-    borderRadius: 999,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   composerCard: {
-    borderRadius: 24,
+    borderRadius: 8,
     marginBottom: 18,
   },
   composerAccent: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
+    borderRadius: 8,
   },
   composerHeaderRow: {
     flexDirection: 'row',
@@ -1159,7 +1159,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
@@ -1172,12 +1172,12 @@ const styles = StyleSheet.create({
   inputShell: {
     marginHorizontal: 16,
     marginBottom: 12,
-    borderRadius: 16,
+    borderRadius: 8,
   },
   textAreaShell: {
     marginHorizontal: 16,
     marginBottom: 12,
-    borderRadius: 20,
+    borderRadius: 8,
   },
   topicInput: {
     color: '#FFFFFF',
@@ -1212,7 +1212,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 999,
+    borderRadius: 8,
   },
   mediaHintText: {
     color: '#D7D7DC',
@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
   selectedImagePreview: {
     alignSelf: 'stretch',
     height: 190,
-    borderRadius: 18,
+    borderRadius: 8,
     marginTop: 14,
     marginHorizontal: 16,
   },
@@ -1240,7 +1240,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   secondaryButton: {
-    borderRadius: 18,
+    borderRadius: 8,
   },
   secondaryButtonInner: {
     minHeight: 52,
@@ -1261,19 +1261,19 @@ const styles = StyleSheet.create({
   topicSkeleton: {
     width: '36%',
     height: 16,
-    borderRadius: 999,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   composerLineLong: {
     width: '100%',
     height: 52,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   composerLineShort: {
     width: '100%',
     height: 48,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   composerActionRow: {
@@ -1283,20 +1283,20 @@ const styles = StyleSheet.create({
   composerActionGhost: {
     flex: 1,
     height: 52,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   composerActionGhostPrimary: {
     flex: 1,
     height: 52,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: 'rgba(74,144,255,0.2)',
   },
   postItemWrap: {
     marginBottom: 14,
   },
   postCard: {
-    borderRadius: 24,
+    borderRadius: 8,
   },
   postTopAccent: {
     height: 1.5,
@@ -1323,7 +1323,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   interactionIndicator: {
-    borderRadius: 999,
+    borderRadius: 8,
     width: 30,
     height: 30,
     alignItems: 'center',
@@ -1332,14 +1332,14 @@ const styles = StyleSheet.create({
   interactionIndicatorDot: {
     width: 10,
     height: 10,
-    borderRadius: 999,
+    borderRadius: 8,
   },
   topicRow: {
     alignItems: 'flex-start',
     marginTop: 12,
   },
   topicPill: {
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 8,
     minHeight: 36,
@@ -1359,7 +1359,7 @@ const styles = StyleSheet.create({
   },
   mediaWrap: {
     marginTop: 14,
-    borderRadius: 20,
+    borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#ffffff22',
@@ -1373,7 +1373,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -1384,7 +1384,7 @@ const styles = StyleSheet.create({
   tenorShell: {
     width: '100%',
     marginTop: 14,
-    borderRadius: 20,
+    borderRadius: 8,
     overflow: 'hidden',
   },
   tenorFrame: {
@@ -1401,7 +1401,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   audioCardSurface: {
-    borderRadius: 20,
+    borderRadius: 8,
   },
   audioCardInner: {
     padding: 14,
@@ -1412,7 +1412,7 @@ const styles = StyleSheet.create({
   audioIconWrap: {
     width: 42,
     height: 42,
-    borderRadius: 999,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1444,7 +1444,7 @@ const styles = StyleSheet.create({
   postActionIcon: {
     width: 30,
     height: 30,
-    borderRadius: 999,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1465,7 +1465,7 @@ const styles = StyleSheet.create({
   },
   commentBubble: {
     marginBottom: 10,
-    borderRadius: 18,
+    borderRadius: 8,
   },
   commentBubbleInner: {
     padding: 12,
@@ -1486,7 +1486,7 @@ const styles = StyleSheet.create({
   },
   commentInputShell: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 8,
   },
   commentInput: {
     flex: 1,
@@ -1502,12 +1502,12 @@ const styles = StyleSheet.create({
   commentSendButton: {
     width: 48,
     height: 48,
-    borderRadius: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyState: {
-    borderRadius: 22,
+    borderRadius: 8,
     marginBottom: 10,
   },
   emptyStateInner: {

@@ -278,9 +278,9 @@ const HomeScreen = () => {
     const title = item.title || item.name;
     const artwork = getImageUrl(item.backdrop_path || item.poster_path);
     const liked = isMovieLiked(item.id);
-    const meta = [item.release_date?.slice(0, 4), `${item.vote_average?.toFixed(1) || 'N/A'} IMDb`]
+    const meta = [item.release_date?.slice(0, 4), `${item.vote_average?.toFixed(1) || 'NR'} IMDb`]
       .filter(Boolean)
-      .join(' | ');
+      .join('  |  ');
 
     return (
       <AnimatedPressable
@@ -352,7 +352,7 @@ const HomeScreen = () => {
             )}
             <View style={styles.searchResultCopy}>
               <Text style={styles.searchResultTitle} numberOfLines={1}>{title}</Text>
-              <Text style={styles.searchResultMeta} numberOfLines={1}>{year} - Tap to open</Text>
+              <Text style={styles.searchResultMeta} numberOfLines={1}>{year} | Details</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#7F8CA3" />
           </View>
@@ -361,7 +361,7 @@ const HomeScreen = () => {
     );
   };
 
-  const userLabel = auth?.currentUser?.email?.split('@')[0] || auth?.currentUser?.displayName || 'Movie fan';
+  const userLabel = auth?.currentUser?.email?.split('@')[0] || auth?.currentUser?.displayName || 'Guest';
 
   if (loading) {
     return <Loader label="Loading movies..." />;
@@ -380,15 +380,12 @@ const HomeScreen = () => {
 
   const renderHeader = () => (
     <>
-      <View pointerEvents="none" style={styles.backgroundOrbPrimary} />
-      <View pointerEvents="none" style={styles.backgroundOrbSecondary} />
-
       <Animated.View style={headerAnimation}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <View>
               <Text style={styles.userGreeting}>Hi, {userLabel}</Text>
-              <Text style={styles.headerText}>Discover amazing movies</Text>
+              <Text style={styles.headerText}>Now showing</Text>
             </View>
             <View style={styles.avatarShell}>
               <Ionicons name="person-circle" size={34} color="#FFFFFF" />
@@ -542,30 +539,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#06090E',
   },
   scrollContent: {
-    paddingTop: 54,
+    paddingTop: 48,
     paddingBottom: 40,
   },
-  backgroundOrbPrimary: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(239, 68, 68, 0.13)',
-    top: -20,
-    right: -90,
-  },
-  backgroundOrbSecondary: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    top: 320,
-    left: -80,
-  },
   header: {
-    padding: 20,
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 18,
   },
   headerRow: {
     flexDirection: 'row',
@@ -575,7 +555,7 @@ const styles = StyleSheet.create({
   avatarShell: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -589,10 +569,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   headerText: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800',
     color: '#FFFFFF',
-    lineHeight: 38,
+    lineHeight: 40,
   },
   heroSection: {
     marginBottom: 18,
@@ -601,8 +581,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: HERO_HORIZONTAL_INSET,
   },
   featuredCard: {
-    height: 256,
-    borderRadius: 30,
+    height: 250,
+    borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#141414',
     borderWidth: 1,
@@ -631,7 +611,7 @@ const styles = StyleSheet.create({
     right: 16,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 8,
     backgroundColor: 'rgba(5, 5, 5, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -642,7 +622,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 16,
     backgroundColor: 'rgba(7, 10, 14, 0.82)',
   },
@@ -657,7 +637,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     marginBottom: 6,
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   },
   featuredMiniMeta: {
     color: '#D0D6E2',
@@ -700,7 +680,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(18,22,28,0.92)',
-    borderRadius: 22,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     minHeight: 58,
@@ -710,7 +690,7 @@ const styles = StyleSheet.create({
   searchIconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -725,14 +705,14 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 8,
     backgroundColor: '#E04A57',
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchDropdown: {
     marginTop: 12,
-    borderRadius: 22,
+    borderRadius: 8,
     backgroundColor: 'rgba(11, 14, 20, 0.98)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -780,13 +760,13 @@ const styles = StyleSheet.create({
   searchResultPoster: {
     width: 42,
     height: 58,
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: '#151A22',
   },
   searchResultPosterFallback: {
     width: 42,
     height: 58,
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: '#151A22',
     justifyContent: 'center',
     alignItems: 'center',
@@ -820,6 +800,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 15,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 22,
@@ -837,7 +818,7 @@ const styles = StyleSheet.create({
   },
   emptySection: {
     backgroundColor: '#111113',
-    borderRadius: 16,
+    borderRadius: 8,
     paddingVertical: 18,
     paddingHorizontal: 16,
     marginHorizontal: 20,
@@ -849,7 +830,7 @@ const styles = StyleSheet.create({
   movieItem: {
     width: 166,
     marginHorizontal: 6,
-    borderRadius: 22,
+    borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: 'rgba(18, 20, 25, 0.98)',
     position: 'relative',
@@ -898,7 +879,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     paddingHorizontal: 8,
     paddingVertical: 5,
-    borderRadius: 999,
+    borderRadius: 8,
   },
   movieMetaSecondary: {
     color: '#B3BECD',
@@ -911,7 +892,7 @@ const styles = StyleSheet.create({
     right: 10,
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 8,
     backgroundColor: 'rgba(5, 5, 5, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -931,14 +912,14 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 22,
+    borderRadius: 8,
     borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: 'rgba(18, 22, 28, 0.92)',
   },
   adminBannerIconWrap: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -968,7 +949,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E50914',
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 8,
     marginTop: 20,
     alignSelf: 'center',
   },

@@ -58,7 +58,7 @@ const DigitalTicketScreen = ({ navigation, route }) => {
           </View>
           <Text style={styles.successMessage}>Booking Confirmed</Text>
           <Text style={styles.successSubtext}>
-            {location?.city ? `${location.city}, ${location.state}` : 'Your seats are locked in'}
+            {location?.city ? `${location.city}, ${location.state}` : 'Seats secured'}
           </Text>
         </View>
 
@@ -113,7 +113,7 @@ const DigitalTicketScreen = ({ navigation, route }) => {
             <Text style={styles.ticketId}>
               Ticket ID: {ticketId || (showingId ? showingId.slice(0, 18).toUpperCase() : 'TKT-PREVIEW')}
             </Text>
-            <Text style={styles.footerNote}>Show this ticket at the entrance gate</Text>
+            <Text style={styles.footerNote}>Show at entry</Text>
           </View>
         </View>
 
@@ -121,12 +121,13 @@ const DigitalTicketScreen = ({ navigation, route }) => {
           <TouchableOpacity
             style={styles.downloadButton}
             onPress={() => {
-              playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS);
-              showToast('PDF export can be connected when you are ready.', { type: 'info' });
+              playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+              showToast('Ticket saved in My Tickets.', { type: 'success' });
+              navigation.navigate('MyTickets');
             }}
           >
-            <Ionicons name="download" size={18} color="#050505" />
-            <Text style={styles.downloadButtonText}>Download PDF</Text>
+            <Ionicons name="ticket-outline" size={18} color="#050505" />
+            <Text style={styles.downloadButtonText}>View tickets</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
   successIcon: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: 8,
     backgroundColor: 'rgba(0, 200, 83, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -184,20 +185,20 @@ const styles = StyleSheet.create({
   },
   ticketContainer: {
     marginHorizontal: 20,
-    backgroundColor: '#F8F2E8',
-    borderRadius: 24,
+    backgroundColor: '#101217',
+    borderRadius: 8,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#E50914',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   ticketTop: {
     padding: 22,
-    backgroundColor: '#111111',
+    backgroundColor: '#101217',
   },
   posterImage: {
     width: '100%',
     height: 180,
-    borderRadius: 18,
+    borderRadius: 8,
     marginBottom: 16,
   },
   ticketEyebrow: {
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.9,
+    letterSpacing: 0,
   },
   movieTitle: {
     color: '#FFFFFF',
@@ -225,7 +226,7 @@ const styles = StyleSheet.create({
   },
   formatPill: {
     backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -244,11 +245,11 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   detailLabel: {
-    color: '#5E5348',
+    color: '#AAB4C4',
     fontWeight: '700',
   },
   detailValue: {
-    color: '#111111',
+    color: '#FFFFFF',
     fontWeight: '700',
     flex: 1,
     textAlign: 'right',
@@ -270,21 +271,21 @@ const styles = StyleSheet.create({
   },
   barcodeLine: {
     height: '100%',
-    backgroundColor: '#111111',
+    backgroundColor: '#FFFFFF',
   },
   ticketFooter: {
     padding: 20,
-    backgroundColor: '#EFE4D4',
+    backgroundColor: '#151821',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.08)',
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   ticketId: {
-    color: '#111111',
+    color: '#FFFFFF',
     fontWeight: '800',
     textAlign: 'center',
   },
   footerNote: {
-    color: '#5E5348',
+    color: '#AAB4C4',
     textAlign: 'center',
     marginTop: 8,
   },
@@ -298,7 +299,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     paddingVertical: 16,
-    borderRadius: 14,
+    borderRadius: 8,
   },
   downloadButtonText: {
     color: '#050505',

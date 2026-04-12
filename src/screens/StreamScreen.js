@@ -120,8 +120,6 @@ const StreamScreen = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View pointerEvents="none" style={styles.backgroundOrbPrimary} />
-      <View pointerEvents="none" style={styles.backgroundOrbSecondary} />
       <View style={styles.header}>
         <Text style={styles.heading}>Stream</Text>
       </View>
@@ -236,24 +234,6 @@ const styles = StyleSheet.create({
     paddingTop: 58,
     paddingBottom: 36,
   },
-  backgroundOrbPrimary: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    top: 30,
-    right: -70,
-  },
-  backgroundOrbSecondary: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(56, 189, 248, 0.11)',
-    top: 320,
-    left: -80,
-  },
   header: {
     paddingHorizontal: 18,
     marginBottom: 18,
@@ -266,7 +246,7 @@ const styles = StyleSheet.create({
   featuredCard: {
     marginHorizontal: STREAM_HORIZONTAL_INSET,
     height: 270,
-    borderRadius: 30,
+    borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: 'rgba(17, 19, 24, 0.96)',
     marginBottom: 18,
@@ -297,7 +277,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   },
   featuredTitle: {
     color: '#FFFFFF',
@@ -315,7 +295,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
@@ -331,7 +311,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
@@ -343,7 +323,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     marginHorizontal: STREAM_HORIZONTAL_INSET,
     marginBottom: 14,
-    borderRadius: 20,
+    borderRadius: 8,
     backgroundColor: 'rgba(18,22,28,0.92)',
     flexDirection: 'row',
     alignItems: 'center',
@@ -363,7 +343,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   genreChip: {
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -402,7 +382,7 @@ const styles = StyleSheet.create({
   },
   streamCard: {
     width: 268,
-    borderRadius: 26,
+    borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: 'rgba(15, 18, 24, 0.96)',
     borderWidth: 1,
@@ -420,7 +400,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: 0.7,
+    letterSpacing: 0,
   },
   streamCardTitle: {
     color: '#FFFFFF',
@@ -437,7 +417,7 @@ const styles = StyleSheet.create({
     marginHorizontal: STREAM_HORIZONTAL_INSET,
     marginTop: 24,
     backgroundColor: 'rgba(15, 18, 24, 0.96)',
-    borderRadius: 26,
+    borderRadius: 8,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,

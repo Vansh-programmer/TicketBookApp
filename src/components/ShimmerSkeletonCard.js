@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   line: {
-    borderRadius: 999,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   authorLine: {
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   dot: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   pillLine: {
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   },
   mediaBlock: {
     height: 200,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   actionsRow: {

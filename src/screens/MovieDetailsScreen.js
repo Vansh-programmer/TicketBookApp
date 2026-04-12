@@ -188,7 +188,7 @@ const MovieDetailsScreen = () => {
               />
             </View>
             <Text style={styles.posterHint}>
-              {trailerVideoId ? 'Tap poster to play' : 'Trailer unavailable'}
+              {trailerVideoId ? 'Play trailer' : 'Trailer unavailable'}
             </Text>
           </View>
         </TouchableOpacity>
@@ -213,7 +213,7 @@ const MovieDetailsScreen = () => {
                 </View>
                 <View style={styles.metaItem}>
                   <Ionicons name="star" size={14} color="#E50914" />
-                  <Text style={styles.metaText}>{movie.vote_average?.toFixed(1) || 'N/A'}</Text>
+                  <Text style={styles.metaText}>{movie.vote_average?.toFixed(1) || 'NR'}</Text>
                 </View>
               </View>
             </View>
@@ -238,8 +238,8 @@ const MovieDetailsScreen = () => {
               onPress={() => navigation.navigate('Home', { screen: 'Stream' })}
               activeOpacity={0.85}
             >
-              <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.streamButtonText}>Explore the new Stream tab</Text>
+              <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.streamButtonText}>Watch options</Text>
             </TouchableOpacity>
           </View>
 
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   posterPlayButton: {
     width: 68,
     height: 68,
-    borderRadius: 34,
+    borderRadius: 8,
     backgroundColor: 'rgba(229, 9, 20, 0.88)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -327,13 +327,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.34)',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: 8,
   },
   cardContainer: {
-    marginTop: -50, // Pull card up
-    backgroundColor: '#1A1A1A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    marginTop: -44,
+    backgroundColor: '#11141A',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
     padding: 20,
     paddingBottom: 100, // Space for footer
   },
@@ -341,14 +341,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   movieTitle: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: '#FFFFFF',
     marginBottom: 10,
   },
   infoContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   genreContainer: {
     flex: 1,
@@ -360,7 +359,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 8,
   },
   genreText: {
     color: '#B0B0B0',
@@ -368,7 +367,7 @@ const styles = StyleSheet.create({
   },
   metaContainer: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 14,
   },
   metaItem: {
     flexDirection: 'row',
@@ -414,13 +413,13 @@ const styles = StyleSheet.create({
   castImage: {
     width: 100,
     height: 140,
-    borderRadius: 60,
+    borderRadius: 8,
     marginBottom: 10,
   },
   castPlaceholder: {
     width: 100,
     height: 140,
-    borderRadius: 60,
+    borderRadius: 8,
     backgroundColor: '#2A2A2A',
     marginBottom: 10,
     justifyContent: 'center',
@@ -447,7 +446,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E50914',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 8,
   },
   footerButtonText: {
     color: '#FFFFFF',
@@ -471,7 +470,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#26262B',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignSelf: 'flex-start',

@@ -124,8 +124,8 @@ const DropdownField = ({
 
 const styles = StyleSheet.create({
   field: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
+    backgroundColor: '#101217',
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(229, 9, 20, 0.1)',
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: '#111111',
-    borderRadius: 22,
+    borderRadius: 8,
     padding: 18,
     maxHeight: '70%',
     borderWidth: 1,
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   optionItem: {
     paddingVertical: 14,
     paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

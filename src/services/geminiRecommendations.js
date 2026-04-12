@@ -69,7 +69,7 @@ const enrichRecommendation = async (recommendation) => {
     return {
       id: recommendation.title,
       title: recommendation.title,
-      year: recommendation.year || 'N/A',
+      year: recommendation.year || 'NR',
       reason: recommendation.reason,
       imdbUrl: `https://www.imdb.com/find/?q=${encodeURIComponent(recommendation.title)}`,
       posterUrl: null,
@@ -86,7 +86,7 @@ const enrichRecommendation = async (recommendation) => {
   return {
     id: matchedMovie.id,
     title: matchedMovie.title || matchedMovie.name || recommendation.title,
-    year: matchedMovie.release_date?.slice(0, 4) || recommendation.year || 'N/A',
+    year: matchedMovie.release_date?.slice(0, 4) || recommendation.year || 'NR',
     reason: recommendation.reason,
     imdbUrl,
     posterUrl: getImageUrl(matchedMovie.poster_path || matchedMovie.backdrop_path),
@@ -142,4 +142,3 @@ export const fetchGeminiMovieRecommendations = async (prompt) => {
 
   return Promise.all(recommendations.map(enrichRecommendation));
 };
-

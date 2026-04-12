@@ -75,19 +75,19 @@ const NeonGlowButton = ({
 const styles = StyleSheet.create({
   glowLayer: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 18,
+    borderRadius: 8,
   },
   gradientFill: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 8,
   },
   gradientBorder: {
-    borderRadius: 18,
+    borderRadius: 8,
     padding: 1,
   },
   innerButton: {
     minHeight: 52,
-    borderRadius: 17,
+    borderRadius: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.92)',
     flexDirection: 'row',
     alignItems: 'center',
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0,
   },
 });
 

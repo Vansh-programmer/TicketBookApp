@@ -143,7 +143,7 @@ const LocationSelectionScreen = ({ navigation, route }) => {
         </View>
 
         <Text style={styles.helperText}>
-          Browse premium Indian cinemas, then lock in the city, theatre, and experience you want.
+          Choose a city, cinema, and viewing format.
         </Text>
       </Animated.View>
 
@@ -180,7 +180,7 @@ const LocationSelectionScreen = ({ navigation, route }) => {
       </Animated.View>
 
       <Animated.View style={[styles.summaryCard, summaryAnimation]}>
-        <Text style={styles.summaryEyebrow}>Tonight's Pick</Text>
+        <Text style={styles.summaryEyebrow}>Selected cinema</Text>
         <Text style={styles.summaryTitle}>{selectedTheater}</Text>
         <Text style={styles.summaryMeta}>
           {selectedCity}, {selectedState}
@@ -205,7 +205,7 @@ const LocationSelectionScreen = ({ navigation, route }) => {
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.selectButton} onPress={handleProceed}>
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-            <Text style={styles.selectButtonText}>CONTINUE TO SHOWTIMES</Text>
+            <Text style={styles.selectButtonText}>Continue to showtimes</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -216,7 +216,7 @@ const LocationSelectionScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#05070B',
   },
   contentContainer: {
     paddingTop: 60,
@@ -261,8 +261,8 @@ const styles = StyleSheet.create({
   summaryCard: {
     marginTop: 18,
     marginHorizontal: 20,
-    backgroundColor: '#141414',
-    borderRadius: 20,
+    backgroundColor: '#101217',
+    borderRadius: 8,
     padding: 18,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   },
   summaryTitle: {
     color: '#FFFFFF',
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   },
   summaryPill: {
     backgroundColor: 'rgba(229, 9, 20, 0.12)',
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: '#E50914',
   },
   selectButtonText: {

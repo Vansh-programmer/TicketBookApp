@@ -201,7 +201,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
           <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTextGroup}>
-          <Text style={styles.headerTitle}>Choose Seats</Text>
+          <Text style={styles.headerTitle}>Choose seats</Text>
           <Text style={styles.headerSubtitle}>
             {movieTitle}
             {selectedDate ? ` • ${showTime}` : ''}
@@ -212,7 +212,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.screen}>
           <View style={styles.screenLine} />
-          <Text style={styles.screenLabel}>SCREEN THIS WAY</Text>
+          <Text style={styles.screenLabel}>Screen this way</Text>
         </View>
 
         <View style={styles.legendContainer}>
@@ -228,7 +228,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
         {loadingSeats ? (
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#E50914" />
-            <Text style={styles.loadingText}>Loading live seat availability...</Text>
+            <Text style={styles.loadingText}>Loading seat availability...</Text>
           </View>
         ) : (
           <View style={styles.seatContainer}>
@@ -306,7 +306,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
             <>
               <Ionicons name="card-outline" size={20} color="#FFFFFF" />
               <Text style={styles.proceedButtonText}>
-                {selectedSeats.length > 0 ? `PAY ${priceDetails.formattedTotal}` : 'PROCEED'}
+                {selectedSeats.length > 0 ? `Pay ${priceDetails.formattedTotal}` : 'Proceed'}
               </Text>
             </>
           )}
@@ -319,7 +319,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#05070B',
   },
   header: {
     paddingHorizontal: 20,
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   screenLine: {
     width: '100%',
     height: 8,
-    borderRadius: 999,
+    borderRadius: 8,
     backgroundColor: '#E50914',
   },
   screenLabel: {
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     marginTop: 10,
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   legendContainer: {
     flexDirection: 'row',
@@ -374,8 +374,8 @@ const styles = StyleSheet.create({
   },
   legendTierCard: {
     flex: 1,
-    backgroundColor: '#141414',
-    borderRadius: 16,
+    backgroundColor: '#101217',
+    borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderWidth: 1,
@@ -402,8 +402,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 22,
     padding: 24,
-    borderRadius: 18,
-    backgroundColor: '#141414',
+    borderRadius: 8,
+    backgroundColor: '#101217',
     alignItems: 'center',
   },
   loadingText: {
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   },
   seat: {
     width: '22.5%',
-    borderRadius: 14,
+    borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 18,
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: 'rgba(255, 107, 107, 0.1)',
     flexDirection: 'row',
   },
@@ -464,8 +464,8 @@ const styles = StyleSheet.create({
   summaryContainer: {
     marginHorizontal: 20,
     marginTop: 22,
-    borderRadius: 20,
-    backgroundColor: '#141414',
+    borderRadius: 8,
+    backgroundColor: '#101217',
     padding: 20,
     alignItems: 'center',
   },
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   proceedButton: {
-    borderRadius: 14,
+    borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',

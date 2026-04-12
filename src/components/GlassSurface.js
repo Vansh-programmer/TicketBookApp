@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
   shell: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 24,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ffffff33',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',

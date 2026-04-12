@@ -14,7 +14,7 @@ const Tab = createBottomTabNavigator();
 
 const TAB_ICONS = {
   Discover: ['compass-outline', 'compass'],
-  'AI Picks': ['chatbubble-ellipses-outline', 'chatbubble-ellipses'],
+  Picks: ['film-outline', 'film'],
   Stream: ['play-circle-outline', 'play-circle'],
   Community: ['people-outline', 'people'],
   Tickets: ['ticket-outline', 'ticket'],
@@ -54,10 +54,10 @@ const MainTabNavigator = () => {
           right: 14,
           bottom: Platform.OS === 'ios' ? 18 : 12,
           height: Platform.OS === 'ios' ? 82 : 72,
-          backgroundColor: 'rgba(10, 12, 16, 0.86)',
+          backgroundColor: 'rgba(8, 10, 14, 0.94)',
           borderTopColor: 'rgba(255,255,255,0.06)',
           borderTopWidth: 1,
-          borderRadius: 28,
+          borderRadius: 8,
           paddingTop: 8,
           paddingBottom: Platform.OS === 'ios' ? 24 : 12,
           elevation: 0,
@@ -70,12 +70,12 @@ const MainTabNavigator = () => {
           shadowRadius: 20,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
+          fontSize: 11,
+          fontWeight: '700',
           marginTop: 2,
         },
         tabBarItemStyle: {
-          borderRadius: 22,
+          borderRadius: 8,
           marginHorizontal: 4,
           marginVertical: 6,
         },
@@ -93,7 +93,7 @@ const MainTabNavigator = () => {
       })}
     >
       <Tab.Screen name="Discover" component={HomeScreen} />
-      <Tab.Screen name="AI Picks" component={AIRecommendationsScreen} />
+      <Tab.Screen name="Picks" component={AIRecommendationsScreen} />
       <Tab.Screen name="Stream" component={StreamScreen} />
       <Tab.Screen name="Community" component={CommunityScreen} />
       <Tab.Screen name="Tickets" component={MyTicketsScreen} />

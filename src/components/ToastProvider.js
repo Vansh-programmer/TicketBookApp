@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#101010',
-    borderRadius: 18,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 14,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,

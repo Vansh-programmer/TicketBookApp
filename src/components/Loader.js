@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
   spinnerWrap: {
     width: 72,
     height: 72,
-    borderRadius: 36,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(229, 9, 20, 0.1)',

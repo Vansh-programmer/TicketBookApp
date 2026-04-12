@@ -74,8 +74,8 @@ const MovieListScreen = ({ route, navigation }) => {
 
   const renderMovie = ({ item }) => {
     const title = item.title || item.name;
-    const rating = item.vote_average?.toFixed(1) || 'N/A';
-    const releaseDate = item.release_date ? item.release_date.substring(0, 4) : 'TBD';
+    const rating = item.vote_average?.toFixed(1) || 'NR';
+    const releaseDate = item.release_date ? item.release_date.substring(0, 4) : 'Soon';
     const artwork = getImageUrl(item.poster_path || item.backdrop_path);
     const liked = isMovieLiked(item.id);
 
@@ -120,8 +120,10 @@ const MovieListScreen = ({ route, navigation }) => {
           <Text style={styles.movieTitle} numberOfLines={2}>
             {title}
           </Text>
-          <Text style={styles.movieMeta}>⭐ {rating}</Text>
-          <Text style={styles.movieMeta}>{releaseDate}</Text>
+          <View style={styles.movieMetaRow}>
+            <Text style={styles.movieMeta}>IMDb {rating}</Text>
+            <Text style={styles.movieYear}>{releaseDate}</Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -135,7 +137,7 @@ const MovieListScreen = ({ route, navigation }) => {
         </TouchableOpacity>
         <View style={styles.headerTextGroup}>
           <Text style={styles.headerTitle}>{screenTitle}</Text>
-          <Text style={styles.headerSubtitle}>Browse all available titles</Text>
+          <Text style={styles.headerSubtitle}>All available titles</Text>
         </View>
       </View>
 
@@ -167,7 +169,7 @@ const MovieListScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#05070B',
   },
   header: {
     paddingTop: 60,
@@ -201,7 +203,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   movieItem: {
-    borderRadius: 16,
+    borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#141414',
     borderWidth: 1,
@@ -214,7 +216,7 @@ const styles = StyleSheet.create({
     right: 12,
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: 'rgba(5, 5, 5, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -244,10 +246,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     minHeight: 38,
   },
+  movieMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   movieMeta: {
     color: '#B0B0B0',
     fontSize: 12,
-    marginBottom: 4,
+    fontWeight: '700',
+  },
+  movieYear: {
+    color: '#8F99A8',
+    fontSize: 12,
+    fontWeight: '600',
   },
   centerState: {
     flex: 1,

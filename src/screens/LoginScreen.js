@@ -77,9 +77,6 @@ const LoginScreen = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View pointerEvents="none" style={styles.backgroundOrbPrimary} />
-      <View pointerEvents="none" style={styles.backgroundOrbSecondary} />
-      <View pointerEvents="none" style={styles.backgroundGlow} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -87,122 +84,113 @@ const LoginScreen = () => {
       >
         <Animated.View style={headerAnimation}>
           <View style={styles.heroBadge}>
-            <Ionicons name="sparkles-outline" size={14} color="#FFD66B" />
-            <Text style={styles.heroBadgeText}>Elegant booking, softer motion</Text>
+            <Ionicons name="ticket-outline" size={14} color="#FFD66B" />
+            <Text style={styles.heroBadgeText}>TicketBook</Text>
           </View>
 
           <View style={styles.logoContainer}>
             <View style={styles.logoHalo}>
               <Ionicons name="film-outline" size={52} color="#F8FAFC" />
             </View>
-            <Text style={styles.logoText}>Cinema Ticket</Text>
+            <Text style={styles.logoText}>TicketBook</Text>
           </View>
 
-          <Text style={styles.welcomeText}>Welcome back!</Text>
-          <Text style={styles.welcomeSubtitle}>
-            Sign in to continue with a cleaner, smoother movie-booking flow.
-          </Text>
+          <Text style={styles.welcomeText}>Welcome back</Text>
+          <Text style={styles.welcomeSubtitle}>Book seats and manage tickets.</Text>
         </Animated.View>
 
         <Animated.View style={formAnimation}>
           <View style={styles.form}>
-          <Text style={styles.formEyebrow}>Account Access</Text>
-          <Text style={styles.formTitle}>Enter the cinema lobby</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="mail-outline"
-              size={20}
-              color="#808080"
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#606080"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="lock-closed-outline"
-              size={20}
-              color="#808080"
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#606080"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              editable={!isLoading}
-            />
-            <TouchableOpacity
-              onPress={() => {
-                playSoundEffect(SOUND_EFFECT_KEYS.TAP);
-                setShowPassword((current) => !current);
-              }}
-              style={styles.passwordToggleIcon}
-              disabled={isLoading}
-            >
+            <Text style={styles.formEyebrow}>Account</Text>
+            <Text style={styles.formTitle}>Sign in</Text>
+            <View style={styles.inputContainer}>
               <Ionicons
-                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                name="mail-outline"
                 size={20}
                 color="#808080"
+                style={styles.inputIcon}
               />
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor="#606080"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isLoading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color="#808080"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="#606080"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                onPress={() => {
+                  playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                  setShowPassword((current) => !current);
+                }}
+                style={styles.passwordToggleIcon}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#808080"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {configError || authError ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle-outline" size={18} color="#FF6B6B" />
+                <Text style={styles.errorText}>{configError || authError}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[
+                styles.button,
+                (!isFormValid || isLoading || !auth) && styles.buttonDisabled,
+              ]}
+              onPress={handleLogin}
+              disabled={!isFormValid || isLoading || !auth}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.buttonText}>Continue</Text>
+              )}
             </TouchableOpacity>
           </View>
 
-          {configError || authError ? (
-            <View style={styles.errorBanner}>
-              <Ionicons name="alert-circle-outline" size={18} color="#FF6B6B" />
-              <Text style={styles.errorText}>{configError || authError}</Text>
-            </View>
-          ) : null}
-
-          <TouchableOpacity
-            style={[
-              styles.button,
-              (!isFormValid || isLoading || !auth) && styles.buttonDisabled,
-            ]}
-            onPress={handleLogin}
-            disabled={!isFormValid || isLoading || !auth}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.buttonText}>Enter Cinema</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.signupContainer}>
-          <Text style={styles.signupText}>Don't have an account?</Text>
-          <TouchableOpacity
-            style={styles.signupButton}
-            onPress={() => {
-              playSoundEffect(SOUND_EFFECT_KEYS.TAP);
-              navigation.navigate('Signup');
-            }}
-            disabled={isLoading}
-          >
-            <Text style={styles.signupButtonText}>Create account</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.footer}>
-          <View style={styles.footerLogo}>
-            <Ionicons name="film-outline" size={24} color="#E50914" />
+          <View style={styles.signupContainer}>
+            <Text style={styles.signupText}>New here?</Text>
+            <TouchableOpacity
+              style={styles.signupButton}
+              onPress={() => {
+                playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                navigation.navigate('Signup');
+              }}
+              disabled={isLoading}
+            >
+              <Text style={styles.signupButtonText}>Create account</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.footerText}>© 2026 Cinema Ticket Booking</Text>
-        </View>
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -220,41 +208,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 32,
   },
-  backgroundOrbPrimary: {
-    position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: 'rgba(239, 68, 68, 0.16)',
-    top: -50,
-    right: -40,
-  },
-  backgroundOrbSecondary: {
-    position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
-    bottom: 80,
-    left: -70,
-  },
-  backgroundGlow: {
-    position: 'absolute',
-    top: 180,
-    left: 28,
-    right: 28,
-    height: 280,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.04)',
-  },
   heroBadge: {
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    borderRadius: 999,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 12,
@@ -275,7 +234,7 @@ const styles = StyleSheet.create({
   logoHalo: {
     width: 96,
     height: 96,
-    borderRadius: 48,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
@@ -287,7 +246,7 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.4,
+    letterSpacing: 0,
     textAlign: 'center',
   },
   welcomeText: {
@@ -306,7 +265,7 @@ const styles = StyleSheet.create({
   },
   form: {
     backgroundColor: 'rgba(15, 18, 24, 0.88)',
-    borderRadius: 28,
+    borderRadius: 8,
     padding: 24,
     marginBottom: 30,
     borderWidth: 1,
@@ -325,7 +284,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0,
     marginBottom: 8,
   },
   formTitle: {
@@ -339,7 +298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 18,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
@@ -363,7 +322,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 107, 107, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 107, 0.25)',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 20,
@@ -377,7 +336,7 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     height: 60,
-    borderRadius: 20,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -390,7 +349,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   signupContainer: {
     flexDirection: 'row',
@@ -410,22 +369,6 @@ const styles = StyleSheet.create({
     color: '#E50914',
     fontSize: 14,
     fontWeight: '600',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 30,
-  },
-  footerLogo: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 18,
-    padding: 10,
-    marginRight: 10,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#8C96A5',
   },
 });
 

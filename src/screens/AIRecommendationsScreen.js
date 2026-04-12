@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Image,
   Linking,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,121 +18,12 @@ import {
   isGeminiConfigured,
 } from '../services/geminiRecommendations';
 
-const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
-
 const QUICK_PROMPTS = [
-  'Give me mind-bending sci-fi movies',
-  'Recommend feel-good family movies',
-  'Recommend horror movies',
-  'Suggest satire movie/series',
+  'Thoughtful sci-fi',
+  'Family night',
+  'Modern horror',
+  'Sharp satire',
 ];
-
-const TENOR_EMBEDS = {
-  horror: {
-    title: 'Anime Uzumaki GIF',
-    postId: '12013994626959537302',
-    aspectRatio: '1.49102',
-    primaryUrl: 'https://tenor.com/view/anime-uzumaki-junji-ito-horror-gif-12013994626959537302',
-    secondaryLabel: 'Anime GIFs',
-    secondaryUrl: 'https://tenor.com/search/anime-gifs',
-  },
-  satire: {
-    title: 'Hasna Tha Sarcasm Sticker',
-    postId: '2836167382193789847',
-    aspectRatio: '0.801205',
-    primaryUrl: 'https://tenor.com/view/hasna-tha-sarcasm-sarc-arjun-rampal-akshaye-khanna-gif-2836167382193789847',
-    secondaryLabel: 'Hasna Tha Stickers',
-    secondaryUrl: 'https://tenor.com/search/hasna+tha-stickers',
-  },
-  gangster: {
-    title: 'Dhurandhar 2 Dhurandhar The Revenge Sticker',
-    postId: '15464894884279485218',
-    aspectRatio: '1.77857',
-    primaryUrl: 'https://tenor.com/view/dhurandhar-2-dhurandhar-dhurandhar-the-revenge-dhurandhar-2-movie-dhurandhar-movie-gif-15464894884279485218',
-    secondaryLabel: 'Dhurandhar 2 Stickers',
-    secondaryUrl: 'https://tenor.com/search/dhurandhar+2-stickers',
-  },
-  romance: {
-    title: 'Anime Romance GIF',
-    postId: '25391369',
-    aspectRatio: '1.71134',
-    primaryUrl: 'https://tenor.com/view/anime-romance-gif-25391369',
-    secondaryLabel: 'Romance GIFs',
-    secondaryUrl: 'https://tenor.com/search/romance-gifs',
-  },
-  scifi: {
-    title: 'Space Adventure Cobra Science Fiction GIF',
-    postId: '23561424',
-    aspectRatio: '1.79137',
-    primaryUrl: 'https://tenor.com/view/space-adventure-cobra-science-fiction-future-city-green-hair-anime-gif-23561424',
-    secondaryLabel: 'Science Fiction GIFs',
-    secondaryUrl: 'https://tenor.com/search/science+fiction-gifs',
-  },
-  action: {
-    title: 'Anime Action GIF',
-    postId: '10778149853649875390',
-    aspectRatio: '1.77857',
-    primaryUrl: 'https://tenor.com/view/anime-action-accion-lycoris-recoil-chisato-nishikigi-gif-10778149853649875390',
-    secondaryLabel: 'Action GIFs',
-    secondaryUrl: 'https://tenor.com/search/action-gifs',
-  },
-  comedy: {
-    title: 'Anime Comedy GIF',
-    postId: '23704429',
-    aspectRatio: '0.76506',
-    primaryUrl: 'https://tenor.com/view/anime-comedy-gif-23704429',
-    secondaryLabel: 'Comedy GIFs',
-    secondaryUrl: 'https://tenor.com/search/comedy-gifs',
-  },
-  family: {
-    title: 'Spy Family Anime Celebrate GIF',
-    postId: '26140149',
-    aspectRatio: '1.79137',
-    primaryUrl: 'https://tenor.com/view/spy-family-anime-celebrate-anime-celebration-gif-26140149',
-    secondaryLabel: 'Family GIFs',
-    secondaryUrl: 'https://tenor.com/search/family-gifs',
-  },
-  default: {
-    title: 'Usagi Chiikawa GIF',
-    postId: '1141253056357562491',
-    aspectRatio: '1',
-    primaryUrl: 'https://tenor.com/view/usagi-chiikawa-leaving-walking-away-anime-gif-1141253056357562491',
-    secondaryLabel: 'Usagi GIFs',
-    secondaryUrl: 'https://tenor.com/search/usagi-gifs',
-  },
-};
-
-const buildTenorEmbedHtml = (embed) => `<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        background: #101112;
-        overflow: hidden;
-      }
-      .tenor-gif-embed {
-        width: 100% !important;
-      }
-    </style>
-  </head>
-  <body>
-    <div
-      class="tenor-gif-embed"
-      data-postid="${embed.postId}"
-      data-share-method="host"
-      data-aspect-ratio="${embed.aspectRatio}"
-      data-width="100%"
-    >
-      <a href="${embed.primaryUrl}">${embed.title}</a>
-      from
-      <a href="${embed.secondaryUrl}">${embed.secondaryLabel}</a>
-    </div>
-    <script type="text/javascript" async src="https://tenor.com/embed.js"></script>
-  </body>
-</html>`;
 
 const AIRecommendationsScreen = () => {
   const navigation = useNavigation();
@@ -160,8 +50,8 @@ const AIRecommendationsScreen = () => {
       console.error('Unable to fetch Gemini recommendations:', requestError);
       setError(
         requestError?.message?.includes('EXPO_PUBLIC_GEMINI_API_KEY')
-          ? 'Add your Gemini API key to start the chatbot. See docs/GEMINI_API_KEY.md.'
-          : 'Unable to fetch recommendations right now. Please try again in a moment.',
+          ? 'Picks are offline in this build.'
+          : 'Picks are unavailable right now.',
       );
     } finally {
       setLoading(false);
@@ -177,68 +67,15 @@ const AIRecommendationsScreen = () => {
     }
   };
 
-  const getTenorEmbedForPrompt = () => {
-    const normalizedPrompt = prompt.trim().toLowerCase();
-
-    if (/(horror|scary|ghost|haunted|junji|uzumaki|creepy|slasher)/.test(normalizedPrompt)) {
-      return TENOR_EMBEDS.horror;
-    }
-
-    if (/(satire|sarcasm|sarcastic|mockery|dark comedy|political comedy)/.test(normalizedPrompt)) {
-      return TENOR_EMBEDS.satire;
-    }
-
-    if (/(gangster|mafia|mob|underworld|crime boss|gunda|dhurandhar)/.test(normalizedPrompt)) {
-      return TENOR_EMBEDS.gangster;
-    }
-
-    if (/(romance|romantic|love story|love|heartbreak|couple|dating)/.test(normalizedPrompt)) {
-      return TENOR_EMBEDS.romance;
-    }
-
-    if (/(sci[- ]?fi|science fiction|space|cyberpunk|future|time travel|alien)/.test(normalizedPrompt)) {
-      return TENOR_EMBEDS.scifi;
-    }
-
-    if (/(action|fight|fighting|adrenaline|martial arts|revenge|explosive)/.test(normalizedPrompt)) {
-      return TENOR_EMBEDS.action;
-    }
-
-    if (/(comedy|funny|laugh|laughing|goofy|silly|comic)/.test(normalizedPrompt)) {
-      return TENOR_EMBEDS.comedy;
-    }
-
-    if (/(family|kids|children|wholesome|feel good|feel-good|warm|animated family)/.test(normalizedPrompt)) {
-      return TENOR_EMBEDS.family;
-    }
-
-    return TENOR_EMBEDS.default;
-  };
-
   const renderEmptyRecommendations = () => (
-    <View style={styles.tenorCard}>
-      {(() => {
-        const selectedEmbed = getTenorEmbedForPrompt();
-        const tenorEmbedHtml = buildTenorEmbedHtml(selectedEmbed);
-
-        return Platform.OS === 'web' ? (
-          <iframe
-            title={selectedEmbed.title}
-            srcDoc={tenorEmbedHtml}
-            style={styles.tenorFrame}
-          />
-        ) : (
-          <NativeWebView
-            originWhitelist={['*']}
-            source={{ html: tenorEmbedHtml }}
-            style={styles.tenorWebView}
-            scrollEnabled={false}
-            javaScriptEnabled
-            domStorageEnabled
-            automaticallyAdjustContentInsets={false}
-          />
-        );
-      })()}
+    <View style={styles.emptyCard}>
+      <View style={styles.emptyIcon}>
+        <Ionicons name="film-outline" size={24} color="#F7D27D" />
+      </View>
+      <Text style={styles.emptyTitle}>Tell us the mood</Text>
+      <Text style={styles.emptyText}>
+        Try a genre, occasion, actor, or pace. Your picks will appear here.
+      </Text>
     </View>
   );
 
@@ -246,16 +83,16 @@ const AIRecommendationsScreen = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.heroCard}>
         <View style={styles.heroBadge}>
-          <Ionicons name="sparkles" size={16} color="#FACC15" />
-          <Text style={styles.heroBadgeText}>Gemini Movie Concierge</Text>
+          <Ionicons name="film-outline" size={16} color="#FACC15" />
+          <Text style={styles.heroBadgeText}>Curated picks</Text>
         </View>
-        <Text style={styles.heroTitle}>Ask for movie picks in plain English</Text>
+        <Text style={styles.heroTitle}>Find the right film for tonight</Text>
 
         {!isGeminiConfigured ? (
           <View style={styles.warningCard}>
             <Ionicons name="alert-circle-outline" size={18} color="#FACC15" />
             <Text style={styles.warningText}>
-              Add `EXPO_PUBLIC_GEMINI_API_KEY`
+              Picks are offline in this build.
             </Text>
           </View>
         ) : null}
@@ -295,8 +132,8 @@ const AIRecommendationsScreen = () => {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
-              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.primaryButtonText}>Get Recommendations</Text>
+              <Ionicons name="search-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.primaryButtonText}>Find matches</Text>
             </>
           )}
         </TouchableOpacity>
@@ -305,7 +142,7 @@ const AIRecommendationsScreen = () => {
       </View>
 
       <View style={styles.resultsHeader}>
-        <Text style={styles.resultsTitle}>Recommended for you</Text>
+        <Text style={styles.resultsTitle}>Your matches</Text>
       </View>
 
       {recommendations.length === 0 && !loading ? (
@@ -331,11 +168,11 @@ const AIRecommendationsScreen = () => {
               <View style={styles.metaPill}>
                 <Ionicons name="star" size={14} color="#F87171" />
                 <Text style={styles.metaText}>
-                  {recommendation.voteAverage ? recommendation.voteAverage.toFixed(1) : 'N/A'}
+                  {recommendation.voteAverage ? recommendation.voteAverage.toFixed(1) : 'NR'}
                 </Text>
               </View>
               <View style={styles.metaPill}>
-                <Ionicons name="sparkles-outline" size={14} color="#60A5FA" />
+                <Ionicons name="albums-outline" size={14} color="#60A5FA" />
                 <Text style={styles.metaText} numberOfLines={1}>{recommendation.reason}</Text>
               </View>
             </View>
@@ -379,8 +216,8 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   heroCard: {
-    backgroundColor: '#111214',
-    borderRadius: 24,
+    backgroundColor: '#101217',
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -391,7 +228,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: 'rgba(250, 204, 21, 0.12)',
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 14,
@@ -412,7 +249,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     backgroundColor: 'rgba(250, 204, 21, 0.1)',
-    borderRadius: 16,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 14,
@@ -425,7 +262,7 @@ const styles = StyleSheet.create({
   },
   promptInput: {
     minHeight: 110,
-    borderRadius: 18,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.09)',
     backgroundColor: '#16171A',
@@ -442,7 +279,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   quickPromptChip: {
-    borderRadius: 999,
+    borderRadius: 8,
     backgroundColor: '#1E2024',
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -454,7 +291,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     marginTop: 18,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: '#E50914',
     paddingVertical: 15,
     justifyContent: 'center',
@@ -484,28 +321,40 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
   },
-  tenorCard: {
-    borderRadius: 22,
+  emptyCard: {
+    alignItems: 'center',
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: '#101112',
-    overflow: 'hidden',
+    backgroundColor: '#101217',
+    paddingHorizontal: 22,
+    paddingVertical: 28,
   },
-  tenorFrame: {
-    width: '100%',
-    height: 320,
-    borderWidth: 0,
-    backgroundColor: '#101112',
+  emptyIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(247, 210, 125, 0.12)',
+    marginBottom: 14,
   },
-  tenorWebView: {
-    width: '100%',
-    height: 320,
-    backgroundColor: '#101112',
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  emptyText: {
+    color: '#AAB4C4',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   resultCard: {
     flexDirection: 'row',
-    backgroundColor: '#101112',
-    borderRadius: 22,
+    backgroundColor: '#101217',
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: 14,
@@ -514,13 +363,13 @@ const styles = StyleSheet.create({
   posterImage: {
     width: 92,
     height: 132,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: '#1D1D1F',
   },
   posterFallback: {
     width: 92,
     height: 132,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: '#1D1D1F',
     justifyContent: 'center',
     alignItems: 'center',
@@ -549,7 +398,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 999,
+    borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -569,7 +418,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#1C1D20',
-    borderRadius: 14,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 11,
   },

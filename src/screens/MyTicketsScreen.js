@@ -139,8 +139,8 @@ const MyTicketsScreen = ({ navigation }) => {
           <Text style={styles.headerTitle}>My Tickets</Text>
           <Text style={styles.headerSubtitle}>
             {showBackButton
-              ? 'All your booked movie reservations'
-              : 'Your booking history inside the new app hub'}
+              ? 'Booked reservations'
+              : 'Your booking history'}
           </Text>
         </View>
       </View>
@@ -166,7 +166,7 @@ const MyTicketsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#05070B',
   },
   header: {
     paddingHorizontal: 20,
@@ -206,8 +206,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   ticketCard: {
-    backgroundColor: '#141414',
-    borderRadius: 18,
+    backgroundColor: '#101217',
+    borderRadius: 8,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   ticketPoster: {
     width: '100%',
     height: 180,
-    borderRadius: 14,
+    borderRadius: 8,
     marginBottom: 16,
   },
   ticketHeader: {
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: 8,
     backgroundColor: 'rgba(229, 9, 20, 0.12)',
   },
   ticketBadgeText: {
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   },
   formatPill: {
     backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   backHomeButton: {
     marginTop: 20,
     backgroundColor: '#E50914',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 18,
     paddingVertical: 12,
   },

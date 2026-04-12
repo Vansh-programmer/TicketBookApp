@@ -62,7 +62,7 @@ const DateSelectionScreen = ({ navigation, route }) => {
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerTextGroup}>
-            <Text style={styles.headerTitle}>Select Date & Time</Text>
+            <Text style={styles.headerTitle}>Select date and time</Text>
             <Text style={styles.headerSubtitle}>{movieTitle}</Text>
           </View>
         </View>
@@ -105,7 +105,7 @@ const DateSelectionScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.showtimeSection}>
-          <Text style={styles.showtimeSectionTitle}>Choose Showtime</Text>
+          <Text style={styles.showtimeSectionTitle}>Choose showtime</Text>
           <View style={styles.showtimeGrid}>
             {showtimes.map((showtime) => {
               const isSelected = selectedShowtime === showtime;
@@ -148,7 +148,7 @@ const DateSelectionScreen = ({ navigation, route }) => {
             }}
           >
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-            <Text style={styles.bookButtonText}>CONTINUE TO SEATS</Text>
+            <Text style={styles.bookButtonText}>Continue to seats</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -159,7 +159,7 @@ const DateSelectionScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#05070B',
   },
   contentContainer: {
     paddingTop: 60,
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     width: 86,
     height: 104,
     backgroundColor: '#1A1A1A',
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 15,
     alignItems: 'center',
     justifyContent: 'center',
@@ -232,8 +232,8 @@ const styles = StyleSheet.create({
   summaryCard: {
     marginHorizontal: 20,
     marginTop: 18,
-    backgroundColor: '#151515',
-    borderRadius: 20,
+    backgroundColor: '#101217',
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   },
   summaryTitle: {
     color: '#FFFFFF',
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   showtimeChip: {
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: '#1A1A1A',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 14,
+    borderRadius: 8,
   },
   bookButtonEnabled: {
     backgroundColor: '#E50914',

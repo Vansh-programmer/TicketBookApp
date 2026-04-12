@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     backgroundColor: '#18181B',
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     backgroundColor: '#121214',
-    borderRadius: 18,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     backgroundColor: '#18181B',
-    borderRadius: 999,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
   },
   formCard: {
     backgroundColor: '#121214',
-    borderRadius: 22,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: '#0B0B0D',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: '#FFFFFF',
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: 8,
     backgroundColor: '#E50914',
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: 'center',
     paddingVertical: 14,
   },
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   searchBox: {
     marginTop: 14,
     backgroundColor: '#121214',
-    borderRadius: 14,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   },
   listCard: {
     backgroundColor: '#121214',
-    borderRadius: 18,
+    borderRadius: 8,
     padding: 16,
     marginTop: 12,
     borderWidth: 1,
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: '#1E1E22',
     alignItems: 'center',
     justifyContent: 'center',
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   iconButtonDanger: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: '#411215',
     alignItems: 'center',
     justifyContent: 'center',
