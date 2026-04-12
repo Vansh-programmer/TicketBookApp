@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Animated,
   ScrollView,
@@ -12,6 +12,8 @@ import useFadeInUp from '../hooks/useFadeInUp';
 import { playSoundEffect, SOUND_EFFECT_KEYS } from '../services/soundEffects';
 import { formatInr, getStartingPrice } from '../services/bookingCatalog';
 
+const FALLBACK_SHOWTIMES = ['10:30 AM', '1:30 PM', '4:30 PM', '7:30 PM'];
+
 const DateSelectionScreen = ({ navigation, route }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedShowtime, setSelectedShowtime] = useState(null);
@@ -23,7 +25,11 @@ const DateSelectionScreen = ({ navigation, route }) => {
   } = route.params ?? {};
   const headerAnimation = useFadeInUp({ delay: 0 });
   const contentAnimation = useFadeInUp({ delay: 90 });
-  const showtimes = location?.theaterDetails?.showtimes || [];
+  const rawShowtimes = Array.isArray(location?.theaterDetails?.showtimes)
+    ? location.theaterDetails.showtimes
+    : [];
+  const isUsingFallbackShowtimes = rawShowtimes.length === 0;
+  const showtimes = isUsingFallbackShowtimes ? FALLBACK_SHOWTIMES : rawShowtimes;
 
   const dates = useMemo(() => {
     const today = new Date();
@@ -47,6 +53,12 @@ const DateSelectionScreen = ({ navigation, route }) => {
   }, []);
 
   const selectedDateLabel = dates.find((date) => date.id === selectedDate)?.fullDate;
+
+  useEffect(() => {
+    if (!selectedShowtime && showtimes.length > 0) {
+      setSelectedShowtime(showtimes[0]);
+    }
+  }, [selectedShowtime, showtimes]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
@@ -106,6 +118,11 @@ const DateSelectionScreen = ({ navigation, route }) => {
 
         <View style={styles.showtimeSection}>
           <Text style={styles.showtimeSectionTitle}>Choose showtime</Text>
+          {isUsingFallbackShowtimes ? (
+            <Text style={styles.showtimeFallbackHint}>
+              Live showtimes are unavailable for this theatre right now, so default showtimes are shown.
+            </Text>
+          ) : null}
           <View style={styles.showtimeGrid}>
             {showtimes.map((showtime) => {
               const isSelected = selectedShowtime === showtime;
@@ -275,6 +292,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 14,
+  },
+  showtimeFallbackHint: {
+    color: '#A9B4C8',
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
   },
   showtimeGrid: {
     flexDirection: 'row',

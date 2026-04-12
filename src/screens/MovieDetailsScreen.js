@@ -27,6 +27,7 @@ import {
   getTrailerUrl,
 } from '../services/tmdb';
 import { extractYouTubeVideoId } from '../services/streamCatalog';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const MovieDetailsScreen = () => {
   const navigation = useNavigation();
@@ -154,6 +155,15 @@ const MovieDetailsScreen = () => {
     }
   };
 
+  const handleBookTicket = () => {
+    playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+    navigation.navigate('LocationSelection', {
+      movieTitle: movie.title || movie.name,
+      movieId,
+      moviePoster: movie.poster_path ? getImageUrl(movie.poster_path) : null,
+    });
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -231,6 +241,22 @@ const MovieDetailsScreen = () => {
                 <Ionicons name={liked ? 'heart' : 'heart-outline'} size={20} color="#FFFFFF" />
                 <Text style={styles.secondaryButtonText}>{liked ? 'Liked' : 'Like Movie'}</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.bookInlineButton}
+                onPress={handleBookTicket}
+                activeOpacity={0.88}
+              >
+                <LinearGradient
+                  colors={['#FF5D5D', '#E50914']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.bookInlineButtonGradient}
+                >
+                  <Ionicons name="ticket-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.bookInlineButtonText}>Book Ticket</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -240,6 +266,17 @@ const MovieDetailsScreen = () => {
             >
               <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
               <Text style={styles.streamButtonText}>Watch options</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.myTicketsLinkWrap}
+              onPress={() => {
+                playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                navigation.navigate('MyTickets');
+              }}
+            >
+              <Ionicons name="receipt-outline" size={15} color="#AFC8FF" />
+              <Text style={styles.myTicketsLinkText}>View My Tickets</Text>
             </TouchableOpacity>
           </View>
 
@@ -257,22 +294,6 @@ const MovieDetailsScreen = () => {
         </View>
       </Animated.View>
 
-      <View style={styles.footerContainer}>
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => {
-            playSoundEffect(SOUND_EFFECT_KEYS.TAP);
-            navigation.navigate('LocationSelection', {
-              movieTitle: movie.title || movie.name,
-              movieId,
-              moviePoster: movie.poster_path ? getImageUrl(movie.poster_path) : null,
-            });
-          }}
-        >
-          <Ionicons name="ticket-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.footerButtonText}>Book Ticket</Text>
-        </TouchableOpacity>
-      </View>
     </ScrollView>
   );
 };
@@ -436,23 +457,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
-  footerContainer: {
-    padding: 15,
+  bookInlineButton: {
+    marginLeft: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
   },
-  footerButton: {
+  bookInlineButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E50914',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  footerButtonText: {
+  bookInlineButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontWeight: '800',
+    marginLeft: 8,
+  },
+  myTicketsLinkWrap: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  myTicketsLinkText: {
+    color: '#AFC8FF',
+    fontSize: 13,
     fontWeight: '700',
-    marginLeft: 10,
   },
   errorText: {
     color: '#FFFFFF',

@@ -16,6 +16,13 @@ import { db } from '../config/firebase';
 const USERS_COLLECTION = 'users';
 const ADMIN_STREAM_COLLECTION = 'adminStreamCatalog';
 const ADMIN_THEATERS_COLLECTION = 'adminTheaters';
+const FALLBACK_THEATER_FORMATS = ['2D'];
+const FALLBACK_THEATER_SHOWTIMES = ['10:30 AM', '1:30 PM', '4:30 PM', '7:30 PM'];
+const FALLBACK_SEAT_PRICING = {
+  Luxe: 520,
+  Prime: 320,
+  Classic: 220,
+};
 
 const parseAdminEmails = () =>
   (process.env.EXPO_PUBLIC_ADMIN_EMAILS || '')
@@ -310,18 +317,26 @@ export const mergeIndianLocationOptions = (defaultOptions, adminTheaters = []) =
 
     const nextState = stateMap.get(theater.state);
     const nextCityEntries = [...(nextState.cities[theater.city] || [])];
+    const normalizedFormats = Array.isArray(theater.formats)
+      ? theater.formats.filter((value) => typeof value === 'string' && value.trim())
+      : [];
+    const normalizedShowtimes = Array.isArray(theater.showtimes)
+      ? theater.showtimes.filter((value) => typeof value === 'string' && value.trim())
+      : [];
+    const seatPricing = {
+      Luxe: Number(theater.seatPricing?.Luxe) || FALLBACK_SEAT_PRICING.Luxe,
+      Prime: Number(theater.seatPricing?.Prime) || FALLBACK_SEAT_PRICING.Prime,
+      Classic: Number(theater.seatPricing?.Classic) || FALLBACK_SEAT_PRICING.Classic,
+    };
+
     const normalizedTheater = {
       id: theater.id,
       name: theater.name,
       area: theater.area || '',
-      formats: Array.isArray(theater.formats) ? theater.formats : [],
-      showtimes: Array.isArray(theater.showtimes) ? theater.showtimes : [],
+      formats: normalizedFormats.length > 0 ? normalizedFormats : FALLBACK_THEATER_FORMATS,
+      showtimes: normalizedShowtimes.length > 0 ? normalizedShowtimes : FALLBACK_THEATER_SHOWTIMES,
       experience: theater.experience || 'Custom theatre listing',
-      seatPricing: {
-        Luxe: Number(theater.seatPricing?.Luxe) || 0,
-        Prime: Number(theater.seatPricing?.Prime) || 0,
-        Classic: Number(theater.seatPricing?.Classic) || 0,
-      },
+      seatPricing,
     };
     const existingIndex = nextCityEntries.findIndex((entry) => entry.name === normalizedTheater.name);
 

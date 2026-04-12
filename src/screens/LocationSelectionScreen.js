@@ -23,14 +23,27 @@ import {
   subscribeToAdminTheaters,
 } from '../services/adminCatalog';
 
+const getPreferredTheater = (theaters = []) => {
+  if (!Array.isArray(theaters) || theaters.length === 0) {
+    return null;
+  }
+
+  const withShowtimes = theaters.find(
+    (theater) => Array.isArray(theater?.showtimes) && theater.showtimes.length > 0,
+  );
+
+  return withShowtimes || theaters[0];
+};
+
 const LocationSelectionScreen = ({ navigation, route }) => {
   const { movieTitle = 'Selected Movie', movieId, moviePoster = null } = route.params ?? {};
   const [locationOptions, setLocationOptions] = useState(INDIAN_LOCATION_OPTIONS);
   const [selectedState, setSelectedState] = useState(INDIAN_LOCATION_OPTIONS[0].state);
   const initialStateConfig = INDIAN_LOCATION_OPTIONS[0];
   const initialCity = Object.keys(initialStateConfig.cities)[0];
+  const initialTheater = getPreferredTheater(initialStateConfig.cities[initialCity]);
   const [selectedCity, setSelectedCity] = useState(initialCity);
-  const [selectedTheater, setSelectedTheater] = useState(initialStateConfig.cities[initialCity][0].name);
+  const [selectedTheater, setSelectedTheater] = useState(initialTheater?.name || '');
 
   const headerAnimation = useFadeInUp({ delay: 0 });
   const selectorsAnimation = useFadeInUp({ delay: 90 });
@@ -81,10 +94,12 @@ const LocationSelectionScreen = ({ navigation, route }) => {
     const nextCity = nextCityOptions.includes(selectedCity)
       ? selectedCity
       : nextCityOptions[0];
-    const nextTheaterOptions = (fallbackState?.cities?.[nextCity] || []).map((theater) => theater.name);
+    const nextTheaterEntries = fallbackState?.cities?.[nextCity] || [];
+    const preferredTheater = getPreferredTheater(nextTheaterEntries);
+    const nextTheaterOptions = nextTheaterEntries.map((theater) => theater.name);
     const nextTheater = nextTheaterOptions.includes(selectedTheater)
       ? selectedTheater
-      : nextTheaterOptions[0];
+      : preferredTheater?.name || nextTheaterOptions[0];
 
     if (nextState !== selectedState) {
       setSelectedState(nextState);
@@ -102,7 +117,7 @@ const LocationSelectionScreen = ({ navigation, route }) => {
   const handleStateSelect = (nextState) => {
     const nextStateConfig = getStateConfig(nextState, locationOptions);
     const nextCity = Object.keys(nextStateConfig.cities)[0];
-    const nextTheater = nextStateConfig.cities[nextCity][0].name;
+    const nextTheater = getPreferredTheater(nextStateConfig.cities[nextCity])?.name;
 
     setSelectedState(nextState);
     setSelectedCity(nextCity);
@@ -111,7 +126,7 @@ const LocationSelectionScreen = ({ navigation, route }) => {
 
   const handleCitySelect = (nextCity) => {
     setSelectedCity(nextCity);
-    setSelectedTheater(selectedStateConfig.cities[nextCity][0].name);
+    setSelectedTheater(getPreferredTheater(selectedStateConfig.cities[nextCity])?.name || '');
   };
 
   const handleProceed = () => {
