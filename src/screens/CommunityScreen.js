@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Image,
-  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -30,7 +28,6 @@ import NeonGlowButton from '../components/NeonGlowButton';
 import ShimmerSkeletonCard from '../components/ShimmerSkeletonCard';
 import { auth, storage } from '../config/firebase';
 import { censorText, isBadWordsConfigured } from '../services/profanity';
-import { searchKlipyGifs } from '../services/klipy';
 import {
   addCommentToPost,
   createCommunityPost,
@@ -46,7 +43,6 @@ const IMAGE_URL_PATTERN = /\.(jpg|jpeg|png|webp|avif)(\?.*)?$/i;
 const GIF_URL_PATTERN = /\.(gif)(\?.*)?$/i;
 const AUDIO_URL_PATTERN = /\.(mp3|wav|m4a|aac|ogg|oga|webm)(\?.*)?$/i;
 const MIN_VOICE_NOTE_DURATION_MS = 700;
-const MAX_GIF_RESULTS = 24;
 const MAX_INLINE_WEB_AUDIO_BYTES = 700 * 1024;
 
 const INTERACTION_THEMES = [
@@ -208,7 +204,7 @@ const getMediaAttachmentFromInput = (value) => {
     };
   }
 
-  return { error: 'Use a GIF, image, or audio link.' };
+  return { error: 'Use a Tenor embed/link, GIF, image, or audio link.' };
 };
 
 const getPostTheme = (post) => {
@@ -370,15 +366,9 @@ const CommunityScreen = () => {
   const [postText, setPostText] = useState('');
   const [postMediaInput, setPostMediaInput] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
-  const [selectedGif, setSelectedGif] = useState(null);
   const [recordedVoiceNote, setRecordedVoiceNote] = useState(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [voiceError, setVoiceError] = useState('');
-  const [gifPickerVisible, setGifPickerVisible] = useState(false);
-  const [gifSearchInput, setGifSearchInput] = useState('movie reaction');
-  const [gifResults, setGifResults] = useState([]);
-  const [gifLoading, setGifLoading] = useState(false);
-  const [gifError, setGifError] = useState('');
   const [commentDrafts, setCommentDrafts] = useState({});
   const [expandedPosts, setExpandedPosts] = useState({});
   const [submittingPost, setSubmittingPost] = useState(false);
@@ -533,49 +523,6 @@ const CommunityScreen = () => {
     }
   };
 
-  const runGifSearch = async (searchValue = gifSearchInput) => {
-    const query = searchValue.trim();
-    if (!query || gifLoading) {
-      return;
-    }
-
-    setGifLoading(true);
-    setGifError('');
-
-    try {
-      const results = await searchKlipyGifs(query, { limit: MAX_GIF_RESULTS });
-      setGifResults(results);
-
-      if (results.length === 0) {
-        setGifError('No GIFs found for this search.');
-      }
-    } catch (error) {
-      setGifError(error?.message || 'Unable to search GIFs right now.');
-    } finally {
-      setGifLoading(false);
-    }
-  };
-
-  const openGifPicker = () => {
-    setGifPickerVisible(true);
-    setFeedError('');
-  };
-
-  const selectGifAttachment = (gif) => {
-    setSelectedGif(gif);
-    setSelectedImage(null);
-    setRecordedVoiceNote(null);
-    setVoiceError('');
-    setPostMediaInput(gif.url);
-    setGifPickerVisible(false);
-    setFeedError('');
-  };
-
-  const removeGifAttachment = () => {
-    setSelectedGif(null);
-    setPostMediaInput('');
-  };
-
   const uploadVoiceNoteToStorage = async (voiceNote) => {
     if (!voiceNote?.uri) {
       return null;
@@ -631,7 +578,6 @@ const CommunityScreen = () => {
       setIsRecordingVoice(true);
       setRecordedVoiceNote(null);
       setSelectedImage(null);
-      setSelectedGif(null);
       setPostMediaInput('');
       setVoiceError('');
       setFeedError('');
@@ -722,7 +668,6 @@ const CommunityScreen = () => {
           ? `data:${selectedAsset.mimeType || 'image/jpeg'};base64,${selectedAsset.base64}`
           : null,
       });
-      setSelectedGif(null);
       setRecordedVoiceNote(null);
       setVoiceError('');
       setPostMediaInput('');
@@ -734,25 +679,17 @@ const CommunityScreen = () => {
     const trimmedText = postText.trim();
     const trimmedMediaInput = postMediaInput.trim();
     const hasSelectedImage = Boolean(selectedImage?.dataUri);
-    const hasSelectedGif = Boolean(selectedGif?.url);
     const hasVoiceAttachment = Boolean(recordedVoiceNote?.uri);
-    const hasLinkAttachment = Boolean(trimmedMediaInput) && !hasSelectedGif;
+    const hasLinkAttachment = Boolean(trimmedMediaInput);
 
-    if (
-      (!trimmedText && !hasSelectedImage && !hasLinkAttachment && !hasSelectedGif && !hasVoiceAttachment) ||
-      submittingPost
-    ) {
+    if ((!trimmedText && !hasSelectedImage && !hasLinkAttachment && !hasVoiceAttachment) || submittingPost) {
       return;
     }
 
     let attachment = null;
 
-    if (!hasSelectedImage && hasSelectedGif) {
-      attachment = {
-        mediaType: 'gif',
-        mediaUrl: selectedGif.url,
-        mediaLabel: 'Klipy GIF',
-      };
+    if (!hasSelectedImage && hasLinkAttachment) {
+      attachment = getMediaAttachmentFromInput(trimmedMediaInput);
     } else if (!hasSelectedImage && hasVoiceAttachment) {
       attachment = {
         mediaType: 'audio',
@@ -760,8 +697,6 @@ const CommunityScreen = () => {
         mediaLabel: 'Voice note',
         audioTitle: recordedVoiceNote.title,
       };
-    } else if (!hasSelectedImage && hasLinkAttachment) {
-      attachment = getMediaAttachmentFromInput(trimmedMediaInput);
     }
 
     if (attachment?.error) {
@@ -801,7 +736,6 @@ const CommunityScreen = () => {
       setPostText('');
       setPostMediaInput('');
       setSelectedImage(null);
-      setSelectedGif(null);
       setRecordedVoiceNote(null);
       setVoiceError('');
       setFeedError('');
@@ -1218,7 +1152,7 @@ const CommunityScreen = () => {
                   <TextInput
                     value={postMediaInput}
                     onChangeText={setPostMediaInput}
-                    placeholder="GIF, image, or audio link (optional)"
+                    placeholder="Paste Tenor embed/link, GIF, image, or audio link (optional)"
                     placeholderTextColor="#75757C"
                     style={styles.mediaInput}
                     autoCapitalize="none"
@@ -1226,35 +1160,9 @@ const CommunityScreen = () => {
                   />
                 </GlassSurface>
 
-                <View style={styles.mediaHintRow}>
-                  <GlassSurface style={styles.mediaHintChip}>
-                    <Ionicons name="sparkles-outline" size={14} color="#9AC6FF" />
-                    <Text style={styles.mediaHintText}>Klipy GIF</Text>
-                  </GlassSurface>
-                  <GlassSurface style={styles.mediaHintChip}>
-                    <Ionicons name="mic-outline" size={14} color="#A8FFCC" />
-                    <Text style={styles.mediaHintText}>Voice note</Text>
-                  </GlassSurface>
-                  <GlassSurface style={styles.mediaHintChip}>
-                    <Ionicons name="link-outline" size={14} color="#FFB6B6" />
-                    <Text style={styles.mediaHintText}>Link</Text>
-                  </GlassSurface>
-                </View>
-
-                <View style={styles.composerToolsRow}>
-                  <AnimatedPressable style={styles.secondaryButtonWrap} onPress={openGifPicker}>
-                    <GlassSurface style={styles.secondaryButton}>
-                      <View style={styles.secondaryButtonInner}>
-                        <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" />
-                        <Text style={styles.secondaryButtonText}>
-                          {selectedGif ? 'Change GIF' : 'Pick GIF'}
-                        </Text>
-                      </View>
-                    </GlassSurface>
-                  </AnimatedPressable>
-
+                <View style={styles.voiceCaptureRow}>
                   <AnimatedPressable
-                    style={styles.secondaryButtonWrap}
+                    style={styles.voiceCaptureWrap}
                     onPressIn={startVoiceCapture}
                     onPressOut={stopVoiceCapture}
                   >
@@ -1281,21 +1189,6 @@ const CommunityScreen = () => {
                 </View>
 
                 {voiceError ? <Text style={styles.voiceErrorText}>{voiceError}</Text> : null}
-
-                {selectedGif?.previewUrl || selectedGif?.url ? (
-                  <View style={styles.selectedAttachmentWrap}>
-                    <Image
-                      source={{ uri: selectedGif.previewUrl || selectedGif.url }}
-                      style={styles.selectedImagePreview}
-                    />
-                    <AnimatedPressable style={styles.removeAttachmentButton} onPress={removeGifAttachment}>
-                      <GlassSurface style={styles.removeAttachmentSurface}>
-                        <Ionicons name="close" size={16} color="#FFFFFF" />
-                      </GlassSurface>
-                    </AnimatedPressable>
-                    <Text style={styles.attachmentHint}>GIF selected from Klipy.</Text>
-                  </View>
-                ) : null}
 
                 {recordedVoiceNote ? (
                   <GlassSurface style={styles.voiceAttachmentCard}>
@@ -1340,13 +1233,7 @@ const CommunityScreen = () => {
                     iconName="paper-plane-outline"
                     label={submittingPost ? 'Posting...' : 'Post'}
                     disabled={
-                      (
-                        !postText.trim() &&
-                        !selectedImage?.dataUri &&
-                        !selectedGif?.url &&
-                        !recordedVoiceNote?.uri &&
-                        !postMediaInput.trim()
-                      ) ||
+                      (!postText.trim() && !selectedImage?.dataUri && !postMediaInput.trim() && !recordedVoiceNote?.uri) ||
                       submittingPost
                     }
                   />
@@ -1370,84 +1257,6 @@ const CommunityScreen = () => {
         showsVerticalScrollIndicator={false}
       />
 
-      <Modal
-        visible={gifPickerVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setGifPickerVisible(false)}
-      >
-        <View style={styles.gifModalBackdrop}>
-          <GlassSurface style={styles.gifModalCard}>
-            <View style={styles.gifModalHeader}>
-              <Text style={styles.gifModalTitle}>Klipy GIF Picker</Text>
-              <AnimatedPressable style={styles.gifModalCloseWrap} onPress={() => setGifPickerVisible(false)}>
-                <GlassSurface style={styles.gifModalClose}>
-                  <Ionicons name="close" size={18} color="#FFFFFF" />
-                </GlassSurface>
-              </AnimatedPressable>
-            </View>
-
-            <View style={styles.gifSearchRow}>
-              <GlassSurface style={styles.gifSearchShell}>
-                <TextInput
-                  value={gifSearchInput}
-                  onChangeText={setGifSearchInput}
-                  placeholder="Search GIFs"
-                  placeholderTextColor="#75757C"
-                  style={styles.gifSearchInput}
-                  returnKeyType="search"
-                  onSubmitEditing={() => {
-                    void runGifSearch();
-                  }}
-                />
-              </GlassSurface>
-              <AnimatedPressable style={styles.gifSearchButtonWrap} onPress={() => {
-                void runGifSearch();
-              }}>
-                <LinearGradient
-                  colors={['#42FAD6', '#4D83FF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.gifSearchButton}
-                >
-                  <Ionicons name="search" size={16} color="#05060A" />
-                </LinearGradient>
-              </AnimatedPressable>
-            </View>
-
-            {gifError ? <Text style={styles.gifErrorText}>{gifError}</Text> : null}
-            {gifLoading ? <ActivityIndicator color="#9AC6FF" style={styles.gifLoader} /> : null}
-
-            <FlatList
-              data={gifResults}
-              numColumns={2}
-              keyExtractor={(item, index) => `${item.id}-${index}`}
-              columnWrapperStyle={styles.gifGridRow}
-              contentContainerStyle={styles.gifGridContent}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <AnimatedPressable style={styles.gifCardWrap} onPress={() => selectGifAttachment(item)}>
-                  <GlassSurface style={styles.gifCard}>
-                    <Image
-                      source={{ uri: item.previewUrl || item.url }}
-                      style={[
-                        styles.gifCardImage,
-                        item.aspectRatio ? { aspectRatio: item.aspectRatio } : styles.gifCardImageFallback,
-                      ]}
-                    />
-                    <View style={styles.gifCardOverlay}>
-                      <Ionicons name="add-circle" size={20} color="#FFFFFF" />
-                    </View>
-                  </GlassSurface>
-                </AnimatedPressable>
-              )}
-              ListEmptyComponent={
-                gifLoading ? null : <Text style={styles.gifEmptyText}>Search to find a GIF.</Text>
-              }
-            />
-          </GlassSurface>
-        </View>
-      </Modal>
     </>
   );
 };
@@ -1609,61 +1418,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: 'transparent',
   },
-  mediaHintRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  voiceCaptureRow: {
+    marginHorizontal: 16,
     marginTop: 2,
-    marginHorizontal: 16,
   },
-  composerToolsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-    marginHorizontal: 16,
-  },
-  mediaHintChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  mediaHintText: {
-    color: '#D7D7DC',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  selectedImagePreview: {
-    alignSelf: 'stretch',
-    height: 190,
-    borderRadius: 8,
-    marginTop: 14,
-    marginHorizontal: 16,
-  },
-  selectedAttachmentWrap: {
-    marginTop: 10,
-  },
-  removeAttachmentButton: {
-    position: 'absolute',
-    top: 20,
-    right: 22,
-    width: 32,
-    height: 32,
-  },
-  removeAttachmentSurface: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  attachmentHint: {
-    color: '#A9B4CA',
-    fontSize: 12,
-    marginTop: 8,
-    marginHorizontal: 16,
+  voiceCaptureWrap: {
+    width: '100%',
   },
   voiceCaptureActive: {
     borderWidth: 1,
@@ -1714,6 +1474,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  selectedImagePreview: {
+    alignSelf: 'stretch',
+    height: 190,
+    borderRadius: 8,
+    marginTop: 14,
+    marginHorizontal: 16,
+  },
   composerActions: {
     flexDirection: 'row',
     gap: 10,
@@ -1741,115 +1508,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     marginLeft: 8,
-  },
-  gifModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.78)',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 32,
-  },
-  gifModalCard: {
-    borderRadius: 8,
-    maxHeight: '88%',
-  },
-  gifModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 10,
-  },
-  gifModalTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  gifModalCloseWrap: {
-    width: 34,
-    height: 34,
-  },
-  gifModalClose: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gifSearchRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingBottom: 8,
-  },
-  gifSearchShell: {
-    flex: 1,
-    borderRadius: 8,
-  },
-  gifSearchInput: {
-    color: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    backgroundColor: 'transparent',
-  },
-  gifSearchButtonWrap: {
-    width: 44,
-    height: 44,
-  },
-  gifSearchButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gifErrorText: {
-    color: '#FF9B9B',
-    marginHorizontal: 14,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  gifLoader: {
-    marginTop: 8,
-    marginBottom: 6,
-  },
-  gifGridContent: {
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 14,
-  },
-  gifGridRow: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  gifCardWrap: {
-    flex: 1,
-  },
-  gifCard: {
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  gifCardImage: {
-    width: '100%',
-    borderRadius: 8,
-  },
-  gifCardImageFallback: {
-    height: 120,
-  },
-  gifCardOverlay: {
-    position: 'absolute',
-    right: 8,
-    bottom: 8,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 10,
-    padding: 2,
-  },
-  gifEmptyText: {
-    color: '#A9B4CA',
-    textAlign: 'center',
-    marginTop: 26,
-    marginBottom: 16,
   },
   composerLoadingInner: {
     padding: 16,
