@@ -479,6 +479,7 @@ const HomeScreen = () => {
               autoCorrect={false}
               autoCapitalize="none"
               returnKeyType="search"
+              blurOnSubmit={false}
             />
             <TouchableOpacity
               style={styles.searchIconContainer}
@@ -503,6 +504,7 @@ const HomeScreen = () => {
                   renderItem={renderSearchResult}
                   keyExtractor={(item) => item.id.toString()}
                   scrollEnabled={false}
+                  keyboardShouldPersistTaps="handled"
                   ItemSeparatorComponent={() => <View style={styles.searchResultSeparator} />}
                 />
               ) : (
@@ -524,9 +526,10 @@ const HomeScreen = () => {
       data={movieSections}
       renderItem={renderSection}
       keyExtractor={(item) => item.key}
-      ListHeaderComponent={renderHeader}
+      ListHeaderComponent={renderHeader()}
       ListFooterComponent={<View style={styles.footerSpacer} />}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
       refreshing={refreshing}
       onRefresh={onRefresh}
     />

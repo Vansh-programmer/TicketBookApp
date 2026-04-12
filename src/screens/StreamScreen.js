@@ -72,16 +72,18 @@ const StreamScreen = ({ navigation }) => {
       catalog.filter((item) => {
         const matchesFilter =
           activeFilter === 'All' ||
-          (activeFilter === 'Indian' && item.region === 'India') ||
+          (activeFilter === 'Classics' && ['Classic', 'Vintage', 'Cult'].includes(item.mood)) ||
           item.genre === activeFilter ||
-          item.language === activeFilter;
+          item.language === activeFilter ||
+          item.format === activeFilter;
         const matchesQuery =
           !normalizedQuery ||
           item.title.toLowerCase().includes(normalizedQuery) ||
           item.description.toLowerCase().includes(normalizedQuery) ||
           item.mood.toLowerCase().includes(normalizedQuery) ||
           item.genre.toLowerCase().includes(normalizedQuery) ||
-          item.language.toLowerCase().includes(normalizedQuery);
+          item.language.toLowerCase().includes(normalizedQuery) ||
+          item.badge.toLowerCase().includes(normalizedQuery);
 
         return matchesFilter && matchesQuery;
       }),

@@ -15,6 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   extractYouTubeVideoId,
   getYouTubeEmbedUrl,
+  getYouTubeWatchUrl,
   saveToWatchHistory,
 } from '../services/streamCatalog';
 
@@ -35,6 +36,7 @@ const PlayerScreen = () => {
   const videoId = useMemo(() => extractYouTubeVideoId(rawVideoId), [rawVideoId]);
   const playerHeight = Math.min(Dimensions.get('window').width * 0.58, 300);
   const embedUrl = useMemo(() => (videoId ? getYouTubeEmbedUrl(videoId) : ''), [videoId]);
+  const watchUrl = useMemo(() => (videoId ? getYouTubeWatchUrl(videoId) : ''), [videoId]);
 
   useEffect(() => {
     if (!videoId) {
@@ -69,6 +71,18 @@ const PlayerScreen = () => {
     });
 
     return false;
+  };
+
+  const handleOpenInYouTube = async () => {
+    if (!watchUrl) {
+      return;
+    }
+
+    try {
+      await Linking.openURL(watchUrl);
+    } catch (error) {
+      console.error('Unable to open YouTube link:', error);
+    }
   };
 
   return (
@@ -123,12 +137,25 @@ const PlayerScreen = () => {
             </Text>
             <Text style={styles.unavailableText}>
               {videoId
-                ? 'This trailer could not be loaded right now.'
+                ? 'This movie could not be loaded inside the app right now.'
                 : 'This item does not have a valid YouTube source yet.'}
             </Text>
+            {watchUrl ? (
+              <TouchableOpacity style={styles.fallbackButton} onPress={handleOpenInYouTube}>
+                <Ionicons name="logo-youtube" size={16} color="#050505" />
+                <Text style={styles.fallbackButtonText}>Open in YouTube</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         )}
       </View>
+
+      {watchUrl ? (
+        <TouchableOpacity style={styles.externalOpenButton} onPress={handleOpenInYouTube}>
+          <Ionicons name="logo-youtube" size={18} color="#FFFFFF" />
+          <Text style={styles.externalOpenButtonText}>Playback fallback: Open in YouTube</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <View style={styles.metaCard}>
         {badge ? <Text style={styles.badge}>{badge}</Text> : null}
@@ -232,6 +259,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
+  },
+  fallbackButton: {
+    marginTop: 14,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  fallbackButtonText: {
+    color: '#050505',
+    fontWeight: '800',
+  },
+  externalOpenButton: {
+    marginTop: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(18, 21, 28, 0.92)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  externalOpenButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   metaCard: {
     marginTop: 18,
