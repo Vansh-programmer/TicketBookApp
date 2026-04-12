@@ -130,8 +130,7 @@ const GlobalFlowBackground = () => {
 
   return (
     <View
-      {...(Platform.OS === 'web' ? {} : { pointerEvents: 'none' })}
-      style={[styles.overlay, Platform.OS === 'web' && styles.pointerNoneWeb]}
+      style={[styles.overlay, styles.pointerNone]}
     >
       <AnimatedView style={[styles.orb, styles.orbTopLeft, orbAStyle]}>
         <LinearGradient
@@ -168,7 +167,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
   },
-  pointerNoneWeb: {
+  pointerNone: {
     pointerEvents: 'none',
   },
   orb: {

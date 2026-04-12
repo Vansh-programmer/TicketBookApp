@@ -1,25 +1,36 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
+  Modal,
   Platform,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import {
+  createAudioPlayer,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import AnimatedPressable from '../components/AnimatedPressable';
 import GlassSurface from '../components/GlassSurface';
 import NeonGlowButton from '../components/NeonGlowButton';
 import ShimmerSkeletonCard from '../components/ShimmerSkeletonCard';
-import { auth } from '../config/firebase';
+import { auth, storage } from '../config/firebase';
 import { censorText, isBadWordsConfigured } from '../services/profanity';
+import { searchKlipyGifs } from '../services/klipy';
 import {
   addCommentToPost,
   createCommunityPost,
@@ -34,6 +45,9 @@ const AUDIO_STATUS_EVENT = 'playbackStatusUpdate';
 const IMAGE_URL_PATTERN = /\.(jpg|jpeg|png|webp|avif)(\?.*)?$/i;
 const GIF_URL_PATTERN = /\.(gif)(\?.*)?$/i;
 const AUDIO_URL_PATTERN = /\.(mp3|wav|m4a|aac|ogg|oga|webm)(\?.*)?$/i;
+const MIN_VOICE_NOTE_DURATION_MS = 700;
+const MAX_GIF_RESULTS = 24;
+const MAX_INLINE_WEB_AUDIO_BYTES = 700 * 1024;
 
 const INTERACTION_THEMES = [
   {
@@ -194,7 +208,7 @@ const getMediaAttachmentFromInput = (value) => {
     };
   }
 
-  return { error: 'Use a Tenor, GIF, image, or audio link.' };
+  return { error: 'Use a GIF, image, or audio link.' };
 };
 
 const getPostTheme = (post) => {
@@ -221,6 +235,21 @@ const getCurrentUserIdentity = () => {
   const email = auth?.currentUser?.email?.trim().toLowerCase();
   return auth?.currentUser?.uid || email || '';
 };
+
+const formatDurationLabel = (durationMs) => {
+  const totalSeconds = Math.max(1, Math.floor((durationMs || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
+const blobToDataUrl = (blob) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Unable to read recorded voice note.'));
+    reader.readAsDataURL(blob);
+  });
 
 const getDisplayValue = (value, fallback = '') => {
   if (typeof value === 'string') {
@@ -341,21 +370,37 @@ const CommunityScreen = () => {
   const [postText, setPostText] = useState('');
   const [postMediaInput, setPostMediaInput] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedGif, setSelectedGif] = useState(null);
+  const [recordedVoiceNote, setRecordedVoiceNote] = useState(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
+  const [gifPickerVisible, setGifPickerVisible] = useState(false);
+  const [gifSearchInput, setGifSearchInput] = useState('movie reaction');
+  const [gifResults, setGifResults] = useState([]);
+  const [gifLoading, setGifLoading] = useState(false);
+  const [gifError, setGifError] = useState('');
   const [commentDrafts, setCommentDrafts] = useState({});
   const [expandedPosts, setExpandedPosts] = useState({});
   const [submittingPost, setSubmittingPost] = useState(false);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [feedError, setFeedError] = useState('');
   const [activeAudioPostId, setActiveAudioPostId] = useState(null);
+  const voiceRecorder = useAudioRecorder(RecordingPresets.LOW_QUALITY);
+  const voiceRecorderState = useAudioRecorderState(voiceRecorder, 180);
   const audioPlayerRef = useRef(null);
   const audioSubscriptionRef = useRef(null);
   const activeAudioPostIdRef = useRef(null);
+  const voiceCaptureStartedAtRef = useRef(0);
 
   const userLabel =
     auth?.currentUser?.displayName ||
     auth?.currentUser?.email?.split('@')[0] ||
     'MovieMate';
   const currentUserLikeId = getCurrentUserIdentity();
+  const recordingDurationLabel = useMemo(
+    () => formatDurationLabel(voiceRecorderState.durationMillis),
+    [voiceRecorderState.durationMillis],
+  );
 
   useEffect(() => {
     const unsubscribe = subscribeToCommunityPosts(
@@ -401,8 +446,12 @@ const CommunityScreen = () => {
           console.warn('Unable to release community audio during cleanup:', error);
         }
       }
+
+      voiceRecorder.stop().catch((error) => {
+        console.warn('Unable to stop voice recorder during cleanup:', error);
+      });
     },
-    [],
+    [voiceRecorder],
   );
 
   const totalComments = useMemo(
@@ -484,6 +533,172 @@ const CommunityScreen = () => {
     }
   };
 
+  const runGifSearch = async (searchValue = gifSearchInput) => {
+    const query = searchValue.trim();
+    if (!query || gifLoading) {
+      return;
+    }
+
+    setGifLoading(true);
+    setGifError('');
+
+    try {
+      const results = await searchKlipyGifs(query, { limit: MAX_GIF_RESULTS });
+      setGifResults(results);
+
+      if (results.length === 0) {
+        setGifError('No GIFs found for this search.');
+      }
+    } catch (error) {
+      setGifError(error?.message || 'Unable to search GIFs right now.');
+    } finally {
+      setGifLoading(false);
+    }
+  };
+
+  const openGifPicker = () => {
+    setGifPickerVisible(true);
+    setFeedError('');
+  };
+
+  const selectGifAttachment = (gif) => {
+    setSelectedGif(gif);
+    setSelectedImage(null);
+    setRecordedVoiceNote(null);
+    setVoiceError('');
+    setPostMediaInput(gif.url);
+    setGifPickerVisible(false);
+    setFeedError('');
+  };
+
+  const removeGifAttachment = () => {
+    setSelectedGif(null);
+    setPostMediaInput('');
+  };
+
+  const uploadVoiceNoteToStorage = async (voiceNote) => {
+    if (!voiceNote?.uri) {
+      return null;
+    }
+
+    const response = await fetch(voiceNote.uri);
+    const blob = await response.blob();
+
+    if (Platform.OS === 'web') {
+      if (blob.size > MAX_INLINE_WEB_AUDIO_BYTES) {
+        throw new Error('Voice note is too long for web posting right now. Keep it under about 25 seconds.');
+      }
+
+      return blobToDataUrl(blob);
+    }
+
+    if (!storage) {
+      throw new Error('Firebase Storage is not configured for voice notes.');
+    }
+
+    const safeAuthorId = (currentUserLikeId || 'guest').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileRef = storageRef(storage, `communityVoice/${safeAuthorId}/voice-${Date.now()}.m4a`);
+
+    await uploadBytes(fileRef, blob, {
+      contentType: blob.type || 'audio/m4a',
+    });
+
+    return getDownloadURL(fileRef);
+  };
+
+  const startVoiceCapture = async () => {
+    if (submittingPost || isRecordingVoice || voiceRecorderState.isRecording) {
+      return;
+    }
+
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        setVoiceError('Microphone permission is required to send voice notes.');
+        return;
+      }
+
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+        shouldPlayInBackground: false,
+      });
+
+      await voiceRecorder.prepareToRecordAsync();
+      voiceRecorder.record();
+
+      voiceCaptureStartedAtRef.current = Date.now();
+      setIsRecordingVoice(true);
+      setRecordedVoiceNote(null);
+      setSelectedImage(null);
+      setSelectedGif(null);
+      setPostMediaInput('');
+      setVoiceError('');
+      setFeedError('');
+    } catch (error) {
+      console.error('Unable to start voice recording:', error);
+      setVoiceError('Unable to start recording.');
+      setIsRecordingVoice(false);
+    }
+  };
+
+  const stopVoiceCapture = async () => {
+    if (!isRecordingVoice && !voiceRecorderState.isRecording) {
+      return;
+    }
+
+    setIsRecordingVoice(false);
+
+    try {
+      await voiceRecorder.stop();
+    } catch (error) {
+      console.error('Unable to stop voice recording:', error);
+      setVoiceError('Unable to finish recording.');
+      return;
+    } finally {
+      try {
+        await setAudioModeAsync({
+          allowsRecording: false,
+          playsInSilentMode: true,
+          shouldPlayInBackground: false,
+        });
+      } catch (error) {
+        console.warn('Unable to restore audio mode after recording:', error);
+      }
+    }
+
+    const recorderStatus = voiceRecorder.getStatus();
+    const durationMs = Math.max(
+      recorderStatus?.durationMillis || 0,
+      Date.now() - voiceCaptureStartedAtRef.current,
+    );
+    const voiceUri = recorderStatus?.url || voiceRecorder.uri;
+
+    if (!voiceUri) {
+      setVoiceError('Unable to save this recording.');
+      return;
+    }
+
+    if (durationMs < MIN_VOICE_NOTE_DURATION_MS) {
+      setRecordedVoiceNote(null);
+      setVoiceError('Hold the mic a little longer to record a voice note.');
+      return;
+    }
+
+    setRecordedVoiceNote({
+      uri: voiceUri,
+      durationMs,
+      title: `Voice note (${formatDurationLabel(durationMs)})`,
+    });
+    setVoiceError('');
+    setFeedError('');
+  };
+
+  const removeVoiceAttachment = () => {
+    setRecordedVoiceNote(null);
+    setVoiceError('');
+  };
+
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -491,7 +706,7 @@ const CommunityScreen = () => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 5],
       quality: 0.35,
@@ -507,6 +722,9 @@ const CommunityScreen = () => {
           ? `data:${selectedAsset.mimeType || 'image/jpeg'};base64,${selectedAsset.base64}`
           : null,
       });
+      setSelectedGif(null);
+      setRecordedVoiceNote(null);
+      setVoiceError('');
       setPostMediaInput('');
       setFeedError('');
     }
@@ -516,14 +734,35 @@ const CommunityScreen = () => {
     const trimmedText = postText.trim();
     const trimmedMediaInput = postMediaInput.trim();
     const hasSelectedImage = Boolean(selectedImage?.dataUri);
-    const hasLinkAttachment = Boolean(trimmedMediaInput);
+    const hasSelectedGif = Boolean(selectedGif?.url);
+    const hasVoiceAttachment = Boolean(recordedVoiceNote?.uri);
+    const hasLinkAttachment = Boolean(trimmedMediaInput) && !hasSelectedGif;
 
-    if ((!trimmedText && !hasSelectedImage && !hasLinkAttachment) || submittingPost) {
+    if (
+      (!trimmedText && !hasSelectedImage && !hasLinkAttachment && !hasSelectedGif && !hasVoiceAttachment) ||
+      submittingPost
+    ) {
       return;
     }
 
-    const attachment =
-      !hasSelectedImage && hasLinkAttachment ? getMediaAttachmentFromInput(trimmedMediaInput) : null;
+    let attachment = null;
+
+    if (!hasSelectedImage && hasSelectedGif) {
+      attachment = {
+        mediaType: 'gif',
+        mediaUrl: selectedGif.url,
+        mediaLabel: 'Klipy GIF',
+      };
+    } else if (!hasSelectedImage && hasVoiceAttachment) {
+      attachment = {
+        mediaType: 'audio',
+        mediaUrl: null,
+        mediaLabel: 'Voice note',
+        audioTitle: recordedVoiceNote.title,
+      };
+    } else if (!hasSelectedImage && hasLinkAttachment) {
+      attachment = getMediaAttachmentFromInput(trimmedMediaInput);
+    }
 
     if (attachment?.error) {
       setFeedError(attachment.error);
@@ -538,6 +777,11 @@ const CommunityScreen = () => {
         censorText(postText),
       ]);
 
+      let uploadedVoiceUrl = attachment?.mediaUrl || null;
+      if (attachment?.mediaType === 'audio' && hasVoiceAttachment) {
+        uploadedVoiceUrl = await uploadVoiceNoteToStorage(recordedVoiceNote);
+      }
+
       await createCommunityPost({
         authorId: currentUserLikeId,
         author: userLabel,
@@ -545,7 +789,7 @@ const CommunityScreen = () => {
         topic: censoredTopic,
         text: censoredPostText,
         imageData: selectedImage?.dataUri || null,
-        mediaUrl: attachment?.mediaUrl || null,
+        mediaUrl: uploadedVoiceUrl,
         mediaType: attachment?.mediaType || null,
         mediaLabel: attachment?.mediaLabel || '',
         tenorPostId: attachment?.tenorPostId || null,
@@ -557,13 +801,16 @@ const CommunityScreen = () => {
       setPostText('');
       setPostMediaInput('');
       setSelectedImage(null);
+      setSelectedGif(null);
+      setRecordedVoiceNote(null);
+      setVoiceError('');
       setFeedError('');
     } catch (error) {
       console.error('Unable to create community post:', error);
       setFeedError(
         error?.code === 'permission-denied'
           ? 'Posting is blocked by Firestore rules.'
-          : 'Unable to publish your post right now.',
+          : error?.message || 'Unable to publish your post right now.',
       );
     } finally {
       setSubmittingPost(false);
@@ -876,169 +1123,332 @@ const CommunityScreen = () => {
   };
 
   return (
-    <FlatList
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      data={posts}
-      renderItem={renderPost}
-      keyExtractor={(item) => item.id}
-      ListHeaderComponent={loadingFeed && posts.length === 0 ? null : (
-        <View>
-          <Animated.View entering={FadeInDown.duration(520)} style={styles.header}>
-            <Text style={styles.title}>Community</Text>
-            <Text style={styles.heroCaption}>Posts, reactions, and media from the community.</Text>
-          </Animated.View>
+    <>
+      <FlatList
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        data={posts}
+        renderItem={renderPost}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={loadingFeed && posts.length === 0 ? null : (
+          <View>
+            <Animated.View entering={FadeInDown.duration(520)} style={styles.header}>
+              <Text style={styles.title}>Community</Text>
+              <Text style={styles.heroCaption}>Posts, reactions, and media from the community.</Text>
+            </Animated.View>
 
-          <View style={styles.statsRow}>
-            <Animated.View entering={FadeInUp.delay(50).duration(500)} style={styles.statCardWrap}>
-              <GlassSurface style={styles.statCard}>
-                <View style={styles.statInner}>
-                  <LinearGradient colors={['#34D399', '#0EA5E9']} style={styles.statIconAura}>
-                    <Ionicons name="albums-outline" size={16} color="#FFFFFF" />
-                  </LinearGradient>
-                  <Text style={styles.statValue}>{posts.length}</Text>
-                  <Text style={styles.statLabel}>Posts</Text>
+            <View style={styles.statsRow}>
+              <Animated.View entering={FadeInUp.delay(50).duration(500)} style={styles.statCardWrap}>
+                <GlassSurface style={styles.statCard}>
+                  <View style={styles.statInner}>
+                    <LinearGradient colors={['#34D399', '#0EA5E9']} style={styles.statIconAura}>
+                      <Ionicons name="albums-outline" size={16} color="#FFFFFF" />
+                    </LinearGradient>
+                    <Text style={styles.statValue}>{posts.length}</Text>
+                    <Text style={styles.statLabel}>Posts</Text>
+                  </View>
+                </GlassSurface>
+              </Animated.View>
+              <Animated.View entering={FadeInUp.delay(110).duration(500)} style={styles.statCardWrap}>
+                <GlassSurface style={styles.statCard}>
+                  <View style={styles.statInner}>
+                    <LinearGradient colors={['#60A5FA', '#C084FC']} style={styles.statIconAura}>
+                      <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
+                    </LinearGradient>
+                    <Text style={styles.statValue}>{totalComments}</Text>
+                    <Text style={styles.statLabel}>Replies</Text>
+                  </View>
+                </GlassSurface>
+              </Animated.View>
+              <Animated.View entering={FadeInUp.delay(170).duration(500)} style={styles.statCardWrap}>
+                <GlassSurface style={styles.statCard}>
+                  <View style={styles.statInner}>
+                    <LinearGradient colors={['#F472B6', '#F59E0B']} style={styles.statIconAura}>
+                      <Ionicons name="person-outline" size={16} color="#FFFFFF" />
+                    </LinearGradient>
+                    <Text style={styles.statValue} numberOfLines={1}>
+                      {userLabel}
+                    </Text>
+                    <Text style={styles.statLabel}>You</Text>
+                  </View>
+                </GlassSurface>
+              </Animated.View>
+            </View>
+
+            <Animated.View entering={FadeInUp.delay(220).duration(520)}>
+              <GlassSurface style={styles.composerCard}>
+                <LinearGradient
+                  colors={['rgba(42,250,223,0.22)', 'rgba(76,131,255,0.08)', 'rgba(0,0,0,0)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.composerAccent, { pointerEvents: 'none' }]}
+                />
+                <View style={styles.composerHeaderRow}>
+                  <Text style={styles.composerTitle}>Post</Text>
+                  {!isBadWordsConfigured ? (
+                    <GlassSurface style={styles.moderationChip}>
+                      <Ionicons name="shield-checkmark-outline" size={14} color="#D4B66E" />
+                      <Text style={styles.moderationHint}>Local filter on</Text>
+                    </GlassSurface>
+                  ) : null}
                 </View>
-              </GlassSurface>
-            </Animated.View>
-            <Animated.View entering={FadeInUp.delay(110).duration(500)} style={styles.statCardWrap}>
-              <GlassSurface style={styles.statCard}>
-                <View style={styles.statInner}>
-                  <LinearGradient colors={['#60A5FA', '#C084FC']} style={styles.statIconAura}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
-                  </LinearGradient>
-                  <Text style={styles.statValue}>{totalComments}</Text>
-                  <Text style={styles.statLabel}>Replies</Text>
+
+                {feedError ? <Text style={styles.errorText}>{feedError}</Text> : null}
+
+                <GlassSurface style={styles.inputShell}>
+                  <TextInput
+                    value={postTopic}
+                    onChangeText={setPostTopic}
+                    placeholder="Topic"
+                    placeholderTextColor="#75757C"
+                    style={styles.topicInput}
+                  />
+                </GlassSurface>
+                <GlassSurface style={styles.textAreaShell}>
+                  <TextInput
+                    value={postText}
+                    onChangeText={setPostText}
+                    placeholder="Share something..."
+                    placeholderTextColor="#75757C"
+                    style={styles.postInput}
+                    multiline
+                  />
+                </GlassSurface>
+                <GlassSurface style={styles.inputShell}>
+                  <TextInput
+                    value={postMediaInput}
+                    onChangeText={setPostMediaInput}
+                    placeholder="GIF, image, or audio link (optional)"
+                    placeholderTextColor="#75757C"
+                    style={styles.mediaInput}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </GlassSurface>
+
+                <View style={styles.mediaHintRow}>
+                  <GlassSurface style={styles.mediaHintChip}>
+                    <Ionicons name="sparkles-outline" size={14} color="#9AC6FF" />
+                    <Text style={styles.mediaHintText}>Klipy GIF</Text>
+                  </GlassSurface>
+                  <GlassSurface style={styles.mediaHintChip}>
+                    <Ionicons name="mic-outline" size={14} color="#A8FFCC" />
+                    <Text style={styles.mediaHintText}>Voice note</Text>
+                  </GlassSurface>
+                  <GlassSurface style={styles.mediaHintChip}>
+                    <Ionicons name="link-outline" size={14} color="#FFB6B6" />
+                    <Text style={styles.mediaHintText}>Link</Text>
+                  </GlassSurface>
                 </View>
-              </GlassSurface>
-            </Animated.View>
-            <Animated.View entering={FadeInUp.delay(170).duration(500)} style={styles.statCardWrap}>
-              <GlassSurface style={styles.statCard}>
-                <View style={styles.statInner}>
-                  <LinearGradient colors={['#F472B6', '#F59E0B']} style={styles.statIconAura}>
-                    <Ionicons name="person-outline" size={16} color="#FFFFFF" />
-                  </LinearGradient>
-                  <Text style={styles.statValue} numberOfLines={1}>
-                    {userLabel}
-                  </Text>
-                  <Text style={styles.statLabel}>You</Text>
+
+                <View style={styles.composerToolsRow}>
+                  <AnimatedPressable style={styles.secondaryButtonWrap} onPress={openGifPicker}>
+                    <GlassSurface style={styles.secondaryButton}>
+                      <View style={styles.secondaryButtonInner}>
+                        <Ionicons name="sparkles-outline" size={18} color="#FFFFFF" />
+                        <Text style={styles.secondaryButtonText}>
+                          {selectedGif ? 'Change GIF' : 'Pick GIF'}
+                        </Text>
+                      </View>
+                    </GlassSurface>
+                  </AnimatedPressable>
+
+                  <AnimatedPressable
+                    style={styles.secondaryButtonWrap}
+                    onPressIn={startVoiceCapture}
+                    onPressOut={stopVoiceCapture}
+                  >
+                    <GlassSurface
+                      style={[
+                        styles.secondaryButton,
+                        (isRecordingVoice || voiceRecorderState.isRecording) && styles.voiceCaptureActive,
+                      ]}
+                    >
+                      <View style={styles.secondaryButtonInner}>
+                        <Ionicons
+                          name={(isRecordingVoice || voiceRecorderState.isRecording) ? 'radio-button-on' : 'mic'}
+                          size={18}
+                          color={(isRecordingVoice || voiceRecorderState.isRecording) ? '#FF7A7A' : '#FFFFFF'}
+                        />
+                        <Text style={styles.secondaryButtonText}>
+                          {(isRecordingVoice || voiceRecorderState.isRecording)
+                            ? `Recording ${recordingDurationLabel}`
+                            : 'Hold to talk'}
+                        </Text>
+                      </View>
+                    </GlassSurface>
+                  </AnimatedPressable>
+                </View>
+
+                {voiceError ? <Text style={styles.voiceErrorText}>{voiceError}</Text> : null}
+
+                {selectedGif?.previewUrl || selectedGif?.url ? (
+                  <View style={styles.selectedAttachmentWrap}>
+                    <Image
+                      source={{ uri: selectedGif.previewUrl || selectedGif.url }}
+                      style={styles.selectedImagePreview}
+                    />
+                    <AnimatedPressable style={styles.removeAttachmentButton} onPress={removeGifAttachment}>
+                      <GlassSurface style={styles.removeAttachmentSurface}>
+                        <Ionicons name="close" size={16} color="#FFFFFF" />
+                      </GlassSurface>
+                    </AnimatedPressable>
+                    <Text style={styles.attachmentHint}>GIF selected from Klipy.</Text>
+                  </View>
+                ) : null}
+
+                {recordedVoiceNote ? (
+                  <GlassSurface style={styles.voiceAttachmentCard}>
+                    <View style={styles.voiceAttachmentInner}>
+                      <View style={styles.voiceAttachmentMeta}>
+                        <Ionicons name="mic" size={18} color="#9AC6FF" />
+                        <View>
+                          <Text style={styles.voiceAttachmentTitle}>Voice note ready</Text>
+                          <Text style={styles.voiceAttachmentSubtitle}>
+                            Duration {formatDurationLabel(recordedVoiceNote.durationMs)}
+                          </Text>
+                        </View>
+                      </View>
+                      <AnimatedPressable onPress={removeVoiceAttachment} style={styles.voiceAttachmentRemoveWrap}>
+                        <GlassSurface style={styles.voiceAttachmentRemove}>
+                          <Ionicons name="trash-outline" size={16} color="#FF9B9B" />
+                        </GlassSurface>
+                      </AnimatedPressable>
+                    </View>
+                  </GlassSurface>
+                ) : null}
+
+                {selectedImage?.uri ? (
+                  <Image source={{ uri: selectedImage.uri }} style={styles.selectedImagePreview} />
+                ) : null}
+
+                <View style={styles.composerActions}>
+                  <AnimatedPressable style={styles.secondaryButtonWrap} onPress={pickImage}>
+                    <GlassSurface style={styles.secondaryButton}>
+                      <View style={styles.secondaryButtonInner}>
+                        <Ionicons name="image-outline" size={18} color="#FFFFFF" />
+                        <Text style={styles.secondaryButtonText}>
+                          {selectedImage?.uri ? 'Change image' : 'Add image'}
+                        </Text>
+                      </View>
+                    </GlassSurface>
+                  </AnimatedPressable>
+
+                  <NeonGlowButton
+                    style={styles.primaryButtonWrap}
+                    onPress={submitPost}
+                    iconName="paper-plane-outline"
+                    label={submittingPost ? 'Posting...' : 'Post'}
+                    disabled={
+                      (
+                        !postText.trim() &&
+                        !selectedImage?.dataUri &&
+                        !selectedGif?.url &&
+                        !recordedVoiceNote?.uri &&
+                        !postMediaInput.trim()
+                      ) ||
+                      submittingPost
+                    }
+                  />
                 </View>
               </GlassSurface>
             </Animated.View>
           </View>
-
-          <Animated.View entering={FadeInUp.delay(220).duration(520)}>
-            <GlassSurface style={styles.composerCard}>
-              <LinearGradient
-                {...(Platform.OS === 'web' ? {} : { pointerEvents: 'none' })}
-                colors={['rgba(42,250,223,0.22)', 'rgba(76,131,255,0.08)', 'rgba(0,0,0,0)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.composerAccent, Platform.OS === 'web' && { pointerEvents: 'none' }]}
-              />
-            <View style={styles.composerHeaderRow}>
-              <Text style={styles.composerTitle}>Post</Text>
-              {!isBadWordsConfigured ? (
-                <GlassSurface style={styles.moderationChip}>
-                  <Ionicons name="shield-checkmark-outline" size={14} color="#D4B66E" />
-                  <Text style={styles.moderationHint}>Local filter on</Text>
-                </GlassSurface>
-              ) : null}
-            </View>
-
-            {feedError ? <Text style={styles.errorText}>{feedError}</Text> : null}
-
-            <GlassSurface style={styles.inputShell}>
-              <TextInput
-                value={postTopic}
-                onChangeText={setPostTopic}
-                placeholder="Topic"
-                placeholderTextColor="#75757C"
-                style={styles.topicInput}
-              />
+        )}
+        ListEmptyComponent={
+          loadingFeed ? (
+            <CommunityLoadingState />
+          ) : (
+            <GlassSurface style={styles.emptyState}>
+              <View style={styles.emptyStateInner}>
+                <Text style={styles.emptyTitle}>No community posts yet</Text>
+                <Text style={styles.emptyBody}>Start the first discussion.</Text>
+              </View>
             </GlassSurface>
-            <GlassSurface style={styles.textAreaShell}>
-              <TextInput
-                value={postText}
-                onChangeText={setPostText}
-                placeholder="Share something..."
-                placeholderTextColor="#75757C"
-                style={styles.postInput}
-                multiline
-              />
-            </GlassSurface>
-            <GlassSurface style={styles.inputShell}>
-              <TextInput
-                value={postMediaInput}
-                onChangeText={setPostMediaInput}
-                placeholder="Tenor, GIF, image, or audio link"
-                placeholderTextColor="#75757C"
-                style={styles.mediaInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </GlassSurface>
+          )
+        }
+        showsVerticalScrollIndicator={false}
+      />
 
-            <View style={styles.mediaHintRow}>
-              <GlassSurface style={styles.mediaHintChip}>
-                <Ionicons name="film-outline" size={14} color="#9AC6FF" />
-                <Text style={styles.mediaHintText}>Tenor</Text>
-              </GlassSurface>
-              <GlassSurface style={styles.mediaHintChip}>
-                <Ionicons name="image-outline" size={14} color="#A8FFCC" />
-                <Text style={styles.mediaHintText}>GIF</Text>
-              </GlassSurface>
-              <GlassSurface style={styles.mediaHintChip}>
-                <Ionicons name="musical-notes-outline" size={14} color="#FFB6B6" />
-                <Text style={styles.mediaHintText}>Sound</Text>
-              </GlassSurface>
-            </View>
-
-            {selectedImage?.uri ? (
-              <Image source={{ uri: selectedImage.uri }} style={styles.selectedImagePreview} />
-            ) : null}
-
-            <View style={styles.composerActions}>
-              <AnimatedPressable style={styles.secondaryButtonWrap} onPress={pickImage}>
-                <GlassSurface style={styles.secondaryButton}>
-                  <View style={styles.secondaryButtonInner}>
-                    <Ionicons name="image-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.secondaryButtonText}>
-                      {selectedImage?.uri ? 'Change image' : 'Add image'}
-                    </Text>
-                  </View>
+      <Modal
+        visible={gifPickerVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setGifPickerVisible(false)}
+      >
+        <View style={styles.gifModalBackdrop}>
+          <GlassSurface style={styles.gifModalCard}>
+            <View style={styles.gifModalHeader}>
+              <Text style={styles.gifModalTitle}>Klipy GIF Picker</Text>
+              <AnimatedPressable style={styles.gifModalCloseWrap} onPress={() => setGifPickerVisible(false)}>
+                <GlassSurface style={styles.gifModalClose}>
+                  <Ionicons name="close" size={18} color="#FFFFFF" />
                 </GlassSurface>
               </AnimatedPressable>
+            </View>
 
-              <NeonGlowButton
-                style={styles.primaryButtonWrap}
-                onPress={submitPost}
-                iconName="paper-plane-outline"
-                label={submittingPost ? 'Posting...' : 'Post'}
-                disabled={
-                  (!postText.trim() && !selectedImage?.dataUri && !postMediaInput.trim()) ||
-                  submittingPost
-                }
-              />
+            <View style={styles.gifSearchRow}>
+              <GlassSurface style={styles.gifSearchShell}>
+                <TextInput
+                  value={gifSearchInput}
+                  onChangeText={setGifSearchInput}
+                  placeholder="Search GIFs"
+                  placeholderTextColor="#75757C"
+                  style={styles.gifSearchInput}
+                  returnKeyType="search"
+                  onSubmitEditing={() => {
+                    void runGifSearch();
+                  }}
+                />
+              </GlassSurface>
+              <AnimatedPressable style={styles.gifSearchButtonWrap} onPress={() => {
+                void runGifSearch();
+              }}>
+                <LinearGradient
+                  colors={['#42FAD6', '#4D83FF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.gifSearchButton}
+                >
+                  <Ionicons name="search" size={16} color="#05060A" />
+                </LinearGradient>
+              </AnimatedPressable>
             </View>
-            </GlassSurface>
-          </Animated.View>
-        </View>
-      )}
-      ListEmptyComponent={
-        loadingFeed ? (
-          <CommunityLoadingState />
-        ) : (
-          <GlassSurface style={styles.emptyState}>
-            <View style={styles.emptyStateInner}>
-              <Text style={styles.emptyTitle}>No community posts yet</Text>
-              <Text style={styles.emptyBody}>Start the first discussion.</Text>
-            </View>
+
+            {gifError ? <Text style={styles.gifErrorText}>{gifError}</Text> : null}
+            {gifLoading ? <ActivityIndicator color="#9AC6FF" style={styles.gifLoader} /> : null}
+
+            <FlatList
+              data={gifResults}
+              numColumns={2}
+              keyExtractor={(item, index) => `${item.id}-${index}`}
+              columnWrapperStyle={styles.gifGridRow}
+              contentContainerStyle={styles.gifGridContent}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <AnimatedPressable style={styles.gifCardWrap} onPress={() => selectGifAttachment(item)}>
+                  <GlassSurface style={styles.gifCard}>
+                    <Image
+                      source={{ uri: item.previewUrl || item.url }}
+                      style={[
+                        styles.gifCardImage,
+                        item.aspectRatio ? { aspectRatio: item.aspectRatio } : styles.gifCardImageFallback,
+                      ]}
+                    />
+                    <View style={styles.gifCardOverlay}>
+                      <Ionicons name="add-circle" size={20} color="#FFFFFF" />
+                    </View>
+                  </GlassSurface>
+                </AnimatedPressable>
+              )}
+              ListEmptyComponent={
+                gifLoading ? null : <Text style={styles.gifEmptyText}>Search to find a GIF.</Text>
+              }
+            />
           </GlassSurface>
-        )
-      }
-      showsVerticalScrollIndicator={false}
-    />
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -1206,6 +1616,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginHorizontal: 16,
   },
+  composerToolsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+    marginHorizontal: 16,
+  },
   mediaHintChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1225,6 +1641,78 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 14,
     marginHorizontal: 16,
+  },
+  selectedAttachmentWrap: {
+    marginTop: 10,
+  },
+  removeAttachmentButton: {
+    position: 'absolute',
+    top: 20,
+    right: 22,
+    width: 32,
+    height: 32,
+  },
+  removeAttachmentSurface: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachmentHint: {
+    color: '#A9B4CA',
+    fontSize: 12,
+    marginTop: 8,
+    marginHorizontal: 16,
+  },
+  voiceCaptureActive: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,122,122,0.44)',
+  },
+  voiceErrorText: {
+    color: '#FF9B9B',
+    marginTop: 8,
+    marginHorizontal: 16,
+    lineHeight: 19,
+  },
+  voiceAttachmentCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 8,
+  },
+  voiceAttachmentInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  voiceAttachmentMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  voiceAttachmentTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  voiceAttachmentSubtitle: {
+    marginTop: 4,
+    color: '#A9B4CA',
+    fontSize: 12,
+  },
+  voiceAttachmentRemoveWrap: {
+    width: 34,
+    height: 34,
+  },
+  voiceAttachmentRemove: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   composerActions: {
     flexDirection: 'row',
@@ -1253,6 +1741,115 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     marginLeft: 8,
+  },
+  gifModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.78)',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 32,
+  },
+  gifModalCard: {
+    borderRadius: 8,
+    maxHeight: '88%',
+  },
+  gifModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
+  gifModalTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  gifModalCloseWrap: {
+    width: 34,
+    height: 34,
+  },
+  gifModalClose: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gifSearchRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+  },
+  gifSearchShell: {
+    flex: 1,
+    borderRadius: 8,
+  },
+  gifSearchInput: {
+    color: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    backgroundColor: 'transparent',
+  },
+  gifSearchButtonWrap: {
+    width: 44,
+    height: 44,
+  },
+  gifSearchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gifErrorText: {
+    color: '#FF9B9B',
+    marginHorizontal: 14,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  gifLoader: {
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  gifGridContent: {
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 14,
+  },
+  gifGridRow: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  gifCardWrap: {
+    flex: 1,
+  },
+  gifCard: {
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  gifCardImage: {
+    width: '100%',
+    borderRadius: 8,
+  },
+  gifCardImageFallback: {
+    height: 120,
+  },
+  gifCardOverlay: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 10,
+    padding: 2,
+  },
+  gifEmptyText: {
+    color: '#A9B4CA',
+    textAlign: 'center',
+    marginTop: 26,
+    marginBottom: 16,
   },
   composerLoadingInner: {
     padding: 16,

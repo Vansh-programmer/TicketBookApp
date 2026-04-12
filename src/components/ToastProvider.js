@@ -103,8 +103,10 @@ export const ToastProvider = ({ children }) => {
       {children}
       {toast ? (
         <View
-          {...(Platform.OS === 'web' ? {} : { pointerEvents: 'box-none' })}
-          style={[styles.overlay, Platform.OS === 'web' && styles.overlayIgnorePointerWeb]}
+          style={[
+            styles.overlay,
+            Platform.OS === 'web' ? styles.overlayIgnorePointerWeb : styles.overlayBoxNoneNative,
+          ]}
         >
           <Animated.View
             style={[
@@ -142,6 +144,9 @@ const styles = StyleSheet.create({
   },
   overlayIgnorePointerWeb: {
     pointerEvents: 'none',
+  },
+  overlayBoxNoneNative: {
+    pointerEvents: 'box-none',
   },
   toast: {
     alignSelf: 'stretch',

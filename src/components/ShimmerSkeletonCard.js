@@ -57,8 +57,7 @@ const ShimmerSkeletonCard = ({ style }) => {
         </View>
       </View>
       <Animated.View
-        {...(Platform.OS === 'web' ? {} : { pointerEvents: 'none' })}
-        style={[styles.shimmer, Platform.OS === 'web' && styles.pointerNoneWeb, shimmerStyle]}
+        style={[styles.shimmer, styles.pointerNone, shimmerStyle]}
       >
         <LinearGradient
           colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.18)', 'rgba(255,255,255,0)']}
@@ -137,7 +136,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: SCREEN_WIDTH * 0.55,
   },
-  pointerNoneWeb: {
+  pointerNone: {
     pointerEvents: 'none',
   },
   shimmerGradient: {
