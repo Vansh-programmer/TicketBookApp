@@ -1,3 +1,29 @@
-/.env
+.env
+
+# Expo / React Native local state
 .expo/
-node_modules
+.expo-shared/
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+android/build/
+android/app/build/
+android/.gradle/
+
+# Native Android platform folder should not live in this repo
+android/
+
+# Local Android machine config
+android/local.properties
+
+# Logs / local debug outputs
+*.log
+android-build.log
+android-assemble.log
+
+# Mobile binaries should come from EAS, not git
+*.apk
+*.aab
