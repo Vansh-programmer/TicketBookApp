@@ -1,5 +1,17 @@
 {
   "expo": {
+    "name": "TicketBookApp",
+    "slug": "ticketbookapp",
+    "icon": "./assets/branding/app-icon-opaque.png",
+    "splash": {
+      "image": "./assets/branding/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#130A2E"
+    },
+    "ios": {
+      "icon": "./assets/branding/app-icon-opaque.png",
+      "supportsTablet": true
+    },
     "extra": {
       "eas": {
         "projectId": "a45a26c0-ff50-4f03-bafc-f8afbd18fbce"
@@ -10,7 +22,15 @@
       "expo-asset"
     ],
     "android": {
-      "package": "com.vanshpoonia.ticketbookapp"
+      "package": "com.vanshpoonia.ticketbookapp",
+      "icon": "./assets/branding/app-icon-opaque.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/branding/adaptive-icon.png",
+        "backgroundColor": "#130A2E"
+      }
+    },
+    "web": {
+      "favicon": "./assets/branding/app-icon.png"
     }
   }
 }

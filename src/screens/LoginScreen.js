@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -22,6 +23,8 @@ import {
   SOUND_EFFECT_KEYS,
 } from '../services/soundEffects';
 import { getFirebaseAuthErrorMessage } from '../utils/firebaseAuthErrors';
+
+const APP_ICON = require('../../assets/branding/app-icon.png');
 
 const LoginScreen = () => {
   const navigation = useNavigation();
@@ -90,7 +93,7 @@ const LoginScreen = () => {
 
           <View style={styles.logoContainer}>
             <View style={styles.logoHalo}>
-              <Ionicons name="film-outline" size={52} color="#F8FAFC" />
+              <Image source={APP_ICON} style={styles.logoImage} resizeMode="cover" />
             </View>
             <Text style={styles.logoText}>TicketBook</Text>
           </View>
@@ -232,15 +235,20 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   logoHalo: {
-    width: 96,
-    height: 96,
-    borderRadius: 8,
+    width: 108,
+    height: 108,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   logoText: {
     fontSize: 34,

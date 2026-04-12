@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -21,6 +22,8 @@ import {
   SOUND_EFFECT_KEYS,
 } from '../services/soundEffects';
 import { getFirebaseAuthErrorMessage } from '../utils/firebaseAuthErrors';
+
+const APP_ICON = require('../../assets/branding/app-icon.png');
 
 const SignupScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -100,7 +103,9 @@ const SignupScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <View style={styles.logoContainer}>
-            <Ionicons name="ticket-outline" size={76} color="#E50914" />
+            <View style={styles.logoFrame}>
+              <Image source={APP_ICON} style={styles.logoImage} resizeMode="cover" />
+            </View>
             <Text style={styles.logoText}>Create account</Text>
             <Text style={styles.welcomeSubtitle}>Save tickets and seats.</Text>
           </View>
@@ -267,13 +272,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  logoFrame: {
+    width: 112,
+    height: 112,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
   logoText: {
     fontSize: 32,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0,
     textAlign: 'center',
-    marginTop: 14,
+    marginTop: 16,
   },
   welcomeSubtitle: {
     fontSize: 16,
