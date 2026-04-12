@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing, Image } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Image, Platform } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firebaseConfigError } from '../config/firebase';
 
 const APP_ICON = require('../../assets/branding/app-icon.png');
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 const SplashScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -15,13 +16,13 @@ const SplashScreen = ({ navigation }) => {
         toValue: 1,
         duration: 550,
         easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(logoTranslateY, {
         toValue: 0,
         duration: 550,
         easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start();
 

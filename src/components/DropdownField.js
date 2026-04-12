@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,8 @@ import {
   playSoundEffect,
   SOUND_EFFECT_KEYS,
 } from '../services/soundEffects';
+
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 const DropdownField = ({
   icon,
@@ -37,12 +40,12 @@ const DropdownField = ({
       Animated.timing(overlayOpacity, {
         toValue: 1,
         duration: 180,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(contentTranslateY, {
         toValue: 0,
         duration: 220,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start();
   }, [contentTranslateY, open, overlayOpacity]);

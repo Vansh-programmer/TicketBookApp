@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -49,7 +49,10 @@ const NeonGlowButton = ({
       pressedScale={0.965}
       style={style}
     >
-      <Animated.View pointerEvents="none" style={[styles.glowLayer, glowStyle]}>
+      <Animated.View
+        {...(Platform.OS === 'web' ? {} : { pointerEvents: 'none' })}
+        style={[styles.glowLayer, Platform.OS === 'web' && styles.pointerNoneWeb, glowStyle]}
+      >
         <AnimatedGradient
           colors={colors}
           start={{ x: 0, y: 0 }}
@@ -73,6 +76,9 @@ const NeonGlowButton = ({
 };
 
 const styles = StyleSheet.create({
+  pointerNoneWeb: {
+    pointerEvents: 'none',
+  },
   glowLayer: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 8,

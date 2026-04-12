@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -252,13 +253,19 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 18,
-    },
-    shadowOpacity: 0.24,
-    shadowRadius: 24,
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow: '0px 18px 24px rgba(0, 0, 0, 0.24)',
+        }
+      : {
+          shadowColor: '#000000',
+          shadowOffset: {
+            width: 0,
+            height: 18,
+          },
+          shadowOpacity: 0.24,
+          shadowRadius: 24,
+        }),
   },
   featuredImage: {
     width: '100%',

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Animated } from 'react-native';
+import { Animated, Platform } from 'react-native';
+
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 const useFadeInUp = ({ delay = 0, distance = 16, duration = 350 } = {}) => {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -11,13 +13,13 @@ const useFadeInUp = ({ delay = 0, distance = 16, duration = 350 } = {}) => {
         toValue: 1,
         duration,
         delay,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(translateY, {
         toValue: 0,
         duration,
         delay,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start();
   }, [delay, distance, duration, opacity, translateY]);

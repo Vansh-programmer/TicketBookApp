@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const ToastContext = createContext({
@@ -25,6 +25,8 @@ const TOAST_COLORS = {
   info: '#60A5FA',
 };
 
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
 export const ToastProvider = ({ children }) => {
   const [toast, setToast] = useState(null);
   const translateY = useRef(new Animated.Value(120)).current;
@@ -36,12 +38,12 @@ export const ToastProvider = ({ children }) => {
       Animated.timing(translateY, {
         toValue: 120,
         duration: 180,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(opacity, {
         toValue: 0,
         duration: 140,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start(({ finished }) => {
       if (finished) {
@@ -73,12 +75,12 @@ export const ToastProvider = ({ children }) => {
           toValue: 0,
           tension: 55,
           friction: 9,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(opacity, {
           toValue: 1,
           duration: 160,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]).start();
 
@@ -100,7 +102,10 @@ export const ToastProvider = ({ children }) => {
     <ToastContext.Provider value={contextValue}>
       {children}
       {toast ? (
-        <View pointerEvents="box-none" style={styles.overlay}>
+        <View
+          {...(Platform.OS === 'web' ? {} : { pointerEvents: 'box-none' })}
+          style={[styles.overlay, Platform.OS === 'web' && styles.overlayIgnorePointerWeb]}
+        >
           <Animated.View
             style={[
               styles.toast,
@@ -135,6 +140,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 28,
   },
+  overlayIgnorePointerWeb: {
+    pointerEvents: 'none',
+  },
   toast: {
     alignSelf: 'stretch',
     flexDirection: 'row',
@@ -144,13 +152,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.22)',
+        }
+      : {
+          shadowColor: '#000000',
+          shadowOffset: {
+            width: 0,
+            height: 8,
+          },
+          shadowOpacity: 0.22,
+          shadowRadius: 16,
+        }),
     elevation: 8,
   },
   iconWrap: {

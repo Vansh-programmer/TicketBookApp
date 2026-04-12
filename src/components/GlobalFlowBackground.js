@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const AnimatedView = Animated.View;
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 const GlobalFlowBackground = () => {
   const driftA = useRef(new Animated.Value(0)).current;
@@ -16,13 +17,13 @@ const GlobalFlowBackground = () => {
           toValue: 1,
           duration: 9000,
           easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(driftA, {
           toValue: 0,
           duration: 9000,
           easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     );
@@ -33,13 +34,13 @@ const GlobalFlowBackground = () => {
           toValue: 1,
           duration: 12000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(driftB, {
           toValue: 0,
           duration: 12000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     );
@@ -49,7 +50,7 @@ const GlobalFlowBackground = () => {
         toValue: 1,
         duration: 6000,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     );
 
@@ -128,7 +129,10 @@ const GlobalFlowBackground = () => {
   };
 
   return (
-    <View pointerEvents="none" style={styles.overlay}>
+    <View
+      {...(Platform.OS === 'web' ? {} : { pointerEvents: 'none' })}
+      style={[styles.overlay, Platform.OS === 'web' && styles.pointerNoneWeb]}
+    >
       <AnimatedView style={[styles.orb, styles.orbTopLeft, orbAStyle]}>
         <LinearGradient
           colors={['rgba(86, 221, 255, 0.2)', 'rgba(53, 80, 255, 0.08)', 'rgba(255, 120, 159, 0)']}
@@ -163,6 +167,9 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
+  },
+  pointerNoneWeb: {
+    pointerEvents: 'none',
   },
   orb: {
     position: 'absolute',

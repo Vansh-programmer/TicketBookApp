@@ -61,13 +61,19 @@ const MainTabNavigator = () => {
           paddingTop: 8,
           paddingBottom: Platform.OS === 'ios' ? 24 : 12,
           elevation: 0,
-          shadowColor: '#000000',
-          shadowOffset: {
-            width: 0,
-            height: 10,
-          },
-          shadowOpacity: 0.22,
-          shadowRadius: 20,
+          ...(Platform.OS === 'web'
+            ? {
+                boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.22)',
+              }
+            : {
+                shadowColor: '#000000',
+                shadowOffset: {
+                  width: 0,
+                  height: 10,
+                },
+                shadowOpacity: 0.22,
+                shadowRadius: 20,
+              }),
         },
         tabBarLabelStyle: {
           fontSize: 11,

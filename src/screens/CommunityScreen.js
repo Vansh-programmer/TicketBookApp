@@ -930,11 +930,11 @@ const CommunityScreen = () => {
           <Animated.View entering={FadeInUp.delay(220).duration(520)}>
             <GlassSurface style={styles.composerCard}>
               <LinearGradient
-                pointerEvents="none"
+                {...(Platform.OS === 'web' ? {} : { pointerEvents: 'none' })}
                 colors={['rgba(42,250,223,0.22)', 'rgba(76,131,255,0.08)', 'rgba(0,0,0,0)']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.composerAccent}
+                style={[styles.composerAccent, Platform.OS === 'web' && { pointerEvents: 'none' }]}
               />
             <View style={styles.composerHeaderRow}>
               <Text style={styles.composerTitle}>Post</Text>

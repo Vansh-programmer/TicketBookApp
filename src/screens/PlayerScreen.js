@@ -180,13 +180,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(12, 14, 18, 0.88)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 18,
-    },
-    shadowOpacity: 0.24,
-    shadowRadius: 28,
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow: '0px 18px 28px rgba(0, 0, 0, 0.24)',
+        }
+      : {
+          shadowColor: '#000000',
+          shadowOffset: {
+            width: 0,
+            height: 18,
+          },
+          shadowOpacity: 0.24,
+          shadowRadius: 28,
+        }),
   },
   player: {
     flex: 1,

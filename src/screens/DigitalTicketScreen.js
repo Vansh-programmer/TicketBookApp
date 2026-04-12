@@ -26,6 +26,7 @@ const DigitalTicketScreen = ({ navigation, route }) => {
     ticketId,
     pricing,
     theaterDetails,
+    pendingSync = false,
   } = route.params ?? {};
   const contentAnimation = useFadeInUp({ delay: 0 });
   const { showToast } = useToast();
@@ -68,6 +69,13 @@ const DigitalTicketScreen = ({ navigation, route }) => {
             <Text style={styles.ticketEyebrow}>Digital Pass</Text>
             <Text style={styles.movieTitle}>{movieTitle}</Text>
             <Text style={styles.theaterText}>{location?.theater}</Text>
+
+            {pendingSync ? (
+              <View style={styles.pendingSyncBanner}>
+                <Ionicons name="cloud-offline-outline" size={14} color="#FFD66B" />
+                <Text style={styles.pendingSyncText}>Pending server sync</Text>
+              </View>
+            ) : null}
 
             <View style={styles.formatRow}>
               {(theaterDetails?.formats || []).map((format) => (
@@ -217,6 +225,24 @@ const styles = StyleSheet.create({
   theaterText: {
     color: '#D6D6D9',
     marginTop: 8,
+  },
+  pendingSyncBanner: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 214, 107, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 214, 107, 0.38)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  pendingSyncText: {
+    color: '#FFD66B',
+    fontSize: 12,
+    fontWeight: '700',
   },
   formatRow: {
     marginTop: 14,

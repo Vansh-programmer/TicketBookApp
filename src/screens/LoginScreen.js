@@ -27,6 +27,7 @@ import {
 import { getFirebaseAuthErrorMessage } from '../utils/firebaseAuthErrors';
 
 const APP_ICON = require('../../assets/branding/app-icon.png');
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
@@ -58,13 +59,13 @@ const LoginScreen = () => {
           toValue: 1.045,
           duration: 1200,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(logoPulse, {
           toValue: 1,
           duration: 1200,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     );
@@ -84,13 +85,13 @@ const LoginScreen = () => {
           toValue: 18,
           duration: 2300,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(titleGradientShift, {
           toValue: -18,
           duration: 2300,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     );
@@ -101,13 +102,13 @@ const LoginScreen = () => {
           toValue: -2,
           duration: 1600,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(subtitleFloat, {
           toValue: 2,
           duration: 1600,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     );
@@ -215,7 +216,7 @@ const LoginScreen = () => {
                 styles.welcomeText,
                 {
                   color: flowTitleColor,
-                  textShadowColor: flowTitleShadow,
+                  ...(Platform.OS === 'web' ? {} : { textShadowColor: flowTitleShadow }),
                 },
               ]}
             >
@@ -398,11 +399,17 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800',
     textAlign: 'center',
-    textShadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    textShadowRadius: 10,
+    ...(Platform.OS === 'web'
+      ? {
+          textShadow: '0px 0px 10px rgba(255, 206, 102, 0.28)',
+        }
+      : {
+          textShadowOffset: {
+            width: 0,
+            height: 0,
+          },
+          textShadowRadius: 10,
+        }),
   },
   welcomeUnderline: {
     position: 'absolute',
@@ -433,13 +440,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     elevation: 0,
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 16,
-    },
-    shadowOpacity: 0.24,
-    shadowRadius: 26,
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow: '0px 16px 26px rgba(0, 0, 0, 0.24)',
+        }
+      : {
+          shadowColor: '#000000',
+          shadowOffset: {
+            width: 0,
+            height: 16,
+          },
+          shadowOpacity: 0.24,
+          shadowRadius: 26,
+        }),
   },
   formEyebrow: {
     color: '#D6B15A',

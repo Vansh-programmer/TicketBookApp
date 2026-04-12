@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
@@ -56,7 +56,10 @@ const ShimmerSkeletonCard = ({ style }) => {
           <SkeletonLine style={styles.actionPill} />
         </View>
       </View>
-      <Animated.View pointerEvents="none" style={[styles.shimmer, shimmerStyle]}>
+      <Animated.View
+        {...(Platform.OS === 'web' ? {} : { pointerEvents: 'none' })}
+        style={[styles.shimmer, Platform.OS === 'web' && styles.pointerNoneWeb, shimmerStyle]}
+      >
         <LinearGradient
           colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.18)', 'rgba(255,255,255,0)']}
           start={{ x: 0, y: 0.5 }}
@@ -133,6 +136,9 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: SCREEN_WIDTH * 0.55,
+  },
+  pointerNoneWeb: {
+    pointerEvents: 'none',
   },
   shimmerGradient: {
     flex: 1,
