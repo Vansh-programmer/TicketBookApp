@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Easing,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, firebaseConfigError } from '../config/firebase';
 import { useToast } from '../components/ToastProvider';
@@ -33,6 +35,10 @@ const SignupScreen = ({ navigation }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const logoPulse = useRef(new Animated.Value(1)).current;
+  const titleFlow = useRef(new Animated.Value(0)).current;
+  const titleGradientShift = useRef(new Animated.Value(-18)).current;
+  const subtitleFloat = useRef(new Animated.Value(0)).current;
   const { showToast } = useToast();
   const headerAnimation = useFadeInUp({ delay: 0 });
   const formAnimation = useFadeInUp({ delay: 100 });
@@ -49,6 +55,89 @@ const SignupScreen = ({ navigation }) => {
       passwordsMatch,
     [confirmPassword, email, password, passwordsMatch],
   );
+
+  useEffect(() => {
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoPulse, {
+          toValue: 1.045,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoPulse, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    const titleFlowLoop = Animated.loop(
+      Animated.timing(titleFlow, {
+        toValue: 1,
+        duration: 3600,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      }),
+    );
+
+    const gradientLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(titleGradientShift, {
+          toValue: 18,
+          duration: 2300,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(titleGradientShift, {
+          toValue: -18,
+          duration: 2300,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    const subtitleLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(subtitleFloat, {
+          toValue: -2,
+          duration: 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(subtitleFloat, {
+          toValue: 2,
+          duration: 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    pulseLoop.start();
+    titleFlowLoop.start();
+    gradientLoop.start();
+    subtitleLoop.start();
+
+    return () => {
+      pulseLoop.stop();
+      titleFlowLoop.stop();
+      gradientLoop.stop();
+      subtitleLoop.stop();
+    };
+  }, [logoPulse, subtitleFloat, titleFlow, titleGradientShift]);
+
+  const flowTitleColor = titleFlow.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['#FFE791', '#FF9F64', '#68D6FF'],
+  });
+  const flowTitleShadow = titleFlow.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['rgba(255, 206, 102, 0.35)', 'rgba(255, 146, 114, 0.35)', 'rgba(108, 208, 255, 0.35)'],
+  });
 
   const handleSignup = async () => {
     if (!isFormValid || isLoading) {
@@ -103,11 +192,56 @@ const SignupScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <View style={styles.logoContainer}>
-            <View style={styles.logoFrame}>
+            <Animated.View
+              style={[
+                styles.logoFrame,
+                {
+                  transform: [{ scale: logoPulse }],
+                },
+              ]}
+            >
               <Image source={APP_ICON} style={styles.logoImage} resizeMode="cover" />
+            </Animated.View>
+
+            <View style={styles.titleWrap}>
+              <Animated.View
+                style={[
+                  styles.titleUnderline,
+                  {
+                    transform: [{ translateX: titleGradientShift }],
+                  },
+                ]}
+              >
+                <LinearGradient
+                  colors={['#FFE791', '#FF9F64', '#68D6FF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0.2 }}
+                  style={styles.titleUnderlineFill}
+                />
+              </Animated.View>
+              <Animated.Text
+                style={[
+                  styles.logoText,
+                  {
+                    color: flowTitleColor,
+                    textShadowColor: flowTitleShadow,
+                  },
+                ]}
+              >
+                Create account
+              </Animated.Text>
             </View>
-            <Text style={styles.logoText}>Create account</Text>
-            <Text style={styles.welcomeSubtitle}>Save tickets and seats.</Text>
+
+            <Animated.Text
+              style={[
+                styles.welcomeSubtitle,
+                {
+                  transform: [{ translateY: subtitleFloat }],
+                },
+              ]}
+            >
+              Save tickets and seats.
+            </Animated.Text>
           </View>
         </Animated.View>
 
@@ -285,13 +419,33 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  titleWrap: {
+    alignSelf: 'center',
+    marginTop: 16,
+  },
   logoText: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0,
     textAlign: 'center',
-    marginTop: 16,
+    textShadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    textShadowRadius: 10,
+  },
+  titleUnderline: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 2,
+    width: 140,
+    alignSelf: 'center',
+    zIndex: -1,
+  },
+  titleUnderlineFill: {
+    height: 6,
+    borderRadius: 999,
+    width: '100%',
   },
   welcomeSubtitle: {
     fontSize: 16,
