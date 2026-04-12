@@ -16,6 +16,7 @@ import {
   STREAM_CATALOG,
   STREAM_FILTERS,
   getFeaturedStream,
+  getStreamHistoryKey,
   getStreamSections,
   getStreamThumbnail,
   loadWatchHistory,
@@ -95,6 +96,11 @@ const StreamScreen = ({ navigation }) => {
 
   const openPlayer = (item) => {
     navigation.getParent()?.navigate('Player', {
+      streamId: item.id,
+      historyKey: getStreamHistoryKey(item),
+      embedUrl: item.embedUrl || '',
+      playbackType: item.playbackType || (item.embedUrl ? 'embed' : 'youtube'),
+      thumbnail: item.thumbnail || '',
       videoId: item.videoId,
       title: item.title,
       description: item.description,
@@ -192,7 +198,7 @@ const StreamScreen = ({ navigation }) => {
           <FlatList
             data={watchHistory}
             renderItem={renderStreamCard}
-            keyExtractor={(item) => item.videoId}
+            keyExtractor={(item, index) => `${getStreamHistoryKey(item)}-${index}`}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalList}

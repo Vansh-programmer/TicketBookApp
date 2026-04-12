@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   Linking,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import {
   extractYouTubeVideoId,
+  getStreamHistoryKey,
   getYouTubeEmbedUrl,
   getYouTubeWatchUrl,
   saveToWatchHistory,
@@ -21,10 +23,45 @@ import {
 
 const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
 
+const normalizeHttpsUrl = (value) => {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === 'https:' ? parsed.toString() : '';
+  } catch (error) {
+    return '';
+  }
+};
+
+const getHostname = (url) => {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch (error) {
+    return '';
+  }
+};
+
+const isAllowedHost = (url, trustedHost) => {
+  const requestedHost = getHostname(url);
+  if (!requestedHost || !trustedHost) {
+    return false;
+  }
+
+  return requestedHost === trustedHost || requestedHost.endsWith(`.${trustedHost}`);
+};
+
 const PlayerScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const {
+    streamId,
+    historyKey,
+    embedUrl: rawEmbedUrl,
+    playbackType,
+    thumbnail,
     videoId: rawVideoId,
     title = 'Now Playing',
     description = '',
@@ -32,25 +69,78 @@ const PlayerScreen = () => {
     badge,
   } = route.params ?? {};
   const [playerError, setPlayerError] = useState(false);
+  const [redirectBlocked, setRedirectBlocked] = useState(false);
+  const windowSize = useWindowDimensions();
 
+  const customEmbedUrl = useMemo(() => normalizeHttpsUrl(rawEmbedUrl), [rawEmbedUrl]);
   const videoId = useMemo(() => extractYouTubeVideoId(rawVideoId), [rawVideoId]);
-  const playerHeight = Math.min(Dimensions.get('window').width * 0.58, 300);
-  const embedUrl = useMemo(() => (videoId ? getYouTubeEmbedUrl(videoId) : ''), [videoId]);
+  const isFullscreenLandscape = Platform.OS !== 'web' && windowSize.width > windowSize.height;
+  const playerHeight = Math.min(windowSize.width * 0.58, 300);
+  const embedUrl = useMemo(
+    () => customEmbedUrl || (videoId ? getYouTubeEmbedUrl(videoId) : ''),
+    [customEmbedUrl, videoId],
+  );
+  const trustedHost = useMemo(() => getHostname(embedUrl), [embedUrl]);
+  const usesCustomEmbed = Boolean(customEmbedUrl || (playbackType && playbackType !== 'youtube'));
   const watchUrl = useMemo(() => (videoId ? getYouTubeWatchUrl(videoId) : ''), [videoId]);
 
   useEffect(() => {
-    if (!videoId) {
+    if (!embedUrl && !videoId) {
       return;
     }
 
     saveToWatchHistory({
+      id: streamId,
+      historyKey: historyKey || getStreamHistoryKey({ id: streamId, videoId, embedUrl, title }),
       title,
       description,
       subtitle,
       badge,
+      embedUrl: customEmbedUrl,
+      playbackType: usesCustomEmbed ? 'embed' : 'youtube',
+      thumbnail,
       videoId,
     });
-  }, [badge, description, subtitle, title, videoId]);
+  }, [
+    badge,
+    customEmbedUrl,
+    description,
+    embedUrl,
+    historyKey,
+    streamId,
+    subtitle,
+    thumbnail,
+    title,
+    usesCustomEmbed,
+    videoId,
+  ]);
+
+  useEffect(() => {
+    setRedirectBlocked(false);
+    setPlayerError(false);
+  }, [embedUrl]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return undefined;
+    }
+
+    const lockLandscape = async () => {
+      try {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      } catch (error) {
+        console.warn('Unable to lock player orientation:', error);
+      }
+    };
+
+    void lockLandscape();
+
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.DEFAULT).catch((error) => {
+        console.warn('Unable to restore orientation after player close:', error);
+      });
+    };
+  }, []);
 
   const handleWebViewNavigation = (request) => {
     const url = request?.url || '';
@@ -59,16 +149,24 @@ const PlayerScreen = () => {
       return true;
     }
 
+    if (url.startsWith('blob:') || url.startsWith('data:')) {
+      return true;
+    }
+
+    if (usesCustomEmbed && trustedHost) {
+      const allowed = isAllowedHost(url, trustedHost);
+      if (!allowed) {
+        setRedirectBlocked(true);
+      }
+      return allowed;
+    }
+
     if (
       url.startsWith('https://www.youtube-nocookie.com/embed/') ||
       url.startsWith('https://www.youtube.com/embed/')
     ) {
       return true;
     }
-
-    Linking.openURL(url).catch((error) => {
-      console.error('Unable to open external video link:', error);
-    });
 
     return false;
   };
@@ -86,23 +184,39 @@ const PlayerScreen = () => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, isFullscreenLandscape && styles.contentLandscape]}
+      scrollEnabled={!isFullscreenLandscape}
+    >
+      {isFullscreenLandscape ? (
+        <TouchableOpacity style={styles.landscapeBackButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Player</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      ) : (
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Player</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+      )}
 
-      <View style={[styles.playerShell, { height: playerHeight }]}>
-        {videoId && !playerError ? (
+      <View
+        style={[
+          styles.playerShell,
+          isFullscreenLandscape ? styles.playerShellLandscape : { height: playerHeight },
+        ]}
+      >
+        {embedUrl && !playerError ? (
           Platform.OS === 'web' ? (
             <iframe
               src={embedUrl}
               title={title}
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
               allowFullScreen
+              referrerPolicy="no-referrer"
               style={styles.webIframe}
             />
           ) : (
@@ -133,14 +247,14 @@ const PlayerScreen = () => {
           <View style={styles.unavailableState}>
             <Ionicons name="videocam-off-outline" size={46} color="#8B8B8B" />
             <Text style={styles.unavailableTitle}>
-              {videoId ? 'In-app playback unavailable' : 'Video unavailable'}
+              {embedUrl ? 'In-app playback unavailable' : 'Video unavailable'}
             </Text>
             <Text style={styles.unavailableText}>
-              {videoId
+              {embedUrl
                 ? 'This movie could not be loaded inside the app right now.'
-                : 'This item does not have a valid YouTube source yet.'}
+                : 'This item does not have a valid embed source yet.'}
             </Text>
-            {watchUrl ? (
+            {watchUrl && !usesCustomEmbed ? (
               <TouchableOpacity style={styles.fallbackButton} onPress={handleOpenInYouTube}>
                 <Ionicons name="logo-youtube" size={16} color="#050505" />
                 <Text style={styles.fallbackButtonText}>Open in YouTube</Text>
@@ -150,19 +264,30 @@ const PlayerScreen = () => {
         )}
       </View>
 
-      {watchUrl ? (
+      {!isFullscreenLandscape && redirectBlocked ? (
+        <View style={styles.redirectNotice}>
+          <Ionicons name="shield-checkmark-outline" size={16} color="#F9C56E" />
+          <Text style={styles.redirectNoticeText}>
+            Redirect blocked for safety. Only the original streaming domain is allowed.
+          </Text>
+        </View>
+      ) : null}
+
+      {!isFullscreenLandscape && watchUrl && !usesCustomEmbed ? (
         <TouchableOpacity style={styles.externalOpenButton} onPress={handleOpenInYouTube}>
           <Ionicons name="logo-youtube" size={18} color="#FFFFFF" />
           <Text style={styles.externalOpenButtonText}>Playback fallback: Open in YouTube</Text>
         </TouchableOpacity>
       ) : null}
 
-      <View style={styles.metaCard}>
-        {badge ? <Text style={styles.badge}>{badge}</Text> : null}
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        {description ? <Text style={styles.description}>{description}</Text> : null}
-      </View>
+      {!isFullscreenLandscape ? (
+        <View style={styles.metaCard}>
+          {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {description ? <Text style={styles.description}>{description}</Text> : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 };
@@ -176,6 +301,26 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 16,
     paddingBottom: 32,
+  },
+  contentLandscape: {
+    paddingTop: 0,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+    flexGrow: 1,
+  },
+  landscapeBackButton: {
+    position: 'absolute',
+    top: 18,
+    left: 14,
+    zIndex: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(8, 12, 18, 0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   headerRow: {
     flexDirection: 'row',
@@ -221,6 +366,14 @@ const styles = StyleSheet.create({
           shadowRadius: 28,
         }),
   },
+  playerShellLandscape: {
+    flex: 1,
+    borderRadius: 0,
+    borderWidth: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
   player: {
     flex: 1,
     backgroundColor: '#000000',
@@ -259,6 +412,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
+  },
+  redirectNotice: {
+    marginTop: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 197, 110, 0.4)',
+    backgroundColor: 'rgba(249, 197, 110, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  redirectNoticeText: {
+    flex: 1,
+    color: '#F2DEB0',
+    fontSize: 12,
+    lineHeight: 18,
   },
   fallbackButton: {
     marginTop: 14,

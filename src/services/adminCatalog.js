@@ -12,6 +12,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { getStreamThumbnail, getYouTubeEmbedUrl } from './streamCatalog';
 
 const USERS_COLLECTION = 'users';
 const ADMIN_STREAM_COLLECTION = 'adminStreamCatalog';
@@ -45,32 +46,33 @@ const normalizePrice = (value) => {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 0;
 };
 
-const normalizeVideoId = (value) => {
+const normalizeHttpsUrl = (value) => {
   const input = normalizeText(value);
 
   if (!input) {
     return '';
   }
 
-  const plainIdMatch = input.match(/^[a-zA-Z0-9_-]{11}$/);
-  if (plainIdMatch) {
+  try {
+    const parsed = new URL(input);
+    return parsed.protocol === 'https:' ? parsed.toString() : '';
+  } catch (error) {
+    return '';
+  }
+};
+
+const normalizeThumbnailValue = (value) => {
+  const input = normalizeText(value);
+
+  if (!input) {
+    return '';
+  }
+
+  if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(input)) {
     return input;
   }
 
-  const patterns = [
-    /[?&]v=([a-zA-Z0-9_-]{11})/,
-    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
-    /embed\/([a-zA-Z0-9_-]{11})/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = input.match(pattern);
-    if (match?.[1]) {
-      return match[1];
-    }
-  }
-
-  return input;
+  return normalizeHttpsUrl(input);
 };
 
 const normalizeStreamPayload = (payload) => ({
@@ -84,7 +86,8 @@ const normalizeStreamPayload = (payload) => ({
   format: normalizeText(payload.format) || 'Trailer',
   mood: normalizeText(payload.mood) || 'Fresh',
   badge: normalizeText(payload.badge) || 'Admin pick',
-  videoId: normalizeVideoId(payload.videoId),
+  thumbnail: normalizeThumbnailValue(payload.thumbnailUrl || payload.thumbnail),
+  embedUrl: normalizeHttpsUrl(payload.embedUrl),
 });
 
 const normalizeTheaterPayload = (payload) => ({
@@ -263,9 +266,24 @@ export const deleteAdminTheater = async (id) => {
 
 export const mergeStreamCatalog = (defaultCatalog, adminEntries = []) => {
   const normalizedAdminEntries = adminEntries
-    .filter((entry) => entry?.title && entry?.videoId)
+    .filter((entry) => entry?.title && (entry?.embedUrl || entry?.videoId))
     .map((entry) => ({
+      ...(() => {
+        const fallbackVideoId = normalizeText(entry.videoId);
+        const fallbackEmbedUrl = fallbackVideoId ? getYouTubeEmbedUrl(fallbackVideoId) : '';
+        const embedUrl = normalizeHttpsUrl(entry.embedUrl) || fallbackEmbedUrl;
+        const thumbnail =
+          normalizeThumbnailValue(entry.thumbnail || entry.thumbnailUrl) ||
+          (fallbackVideoId ? getStreamThumbnail(fallbackVideoId) : '');
+
+        return {
+          embedUrl,
+          thumbnail,
+          videoId: fallbackVideoId,
+        };
+      })(),
       id: `admin-stream-${entry.id}`,
+      historyKey: `admin-stream-${entry.id}`,
       title: entry.title,
       description: entry.description || 'Freshly added by the admin team.',
       year: entry.year || new Date().getFullYear(),
@@ -276,7 +294,7 @@ export const mergeStreamCatalog = (defaultCatalog, adminEntries = []) => {
       format: entry.format || 'Trailer',
       mood: entry.mood || 'Fresh',
       badge: entry.badge || 'Admin pick',
-      videoId: entry.videoId,
+      playbackType: 'embed',
       source: 'admin',
     }));
 

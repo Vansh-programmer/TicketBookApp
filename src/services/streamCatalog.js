@@ -638,6 +638,31 @@ export const getYouTubeEmbedUrl = (videoId) =>
 export const getYouTubeWatchUrl = (videoId) =>
   `https://www.youtube.com/watch?v=${videoId}`;
 
+export const getStreamHistoryKey = (item = {}) => {
+  const explicitKey = typeof item.historyKey === 'string' ? item.historyKey.trim() : '';
+  if (explicitKey) {
+    return explicitKey;
+  }
+
+  const idKey = typeof item.id === 'string' ? item.id.trim() : '';
+  if (idKey) {
+    return idKey;
+  }
+
+  const videoKey = typeof item.videoId === 'string' ? item.videoId.trim() : '';
+  if (videoKey) {
+    return videoKey;
+  }
+
+  const embedKey = typeof item.embedUrl === 'string' ? item.embedUrl.trim() : '';
+  if (embedKey) {
+    return embedKey;
+  }
+
+  const titleKey = typeof item.title === 'string' ? item.title.trim().toLowerCase() : '';
+  return titleKey || 'stream-item';
+};
+
 export const extractYouTubeVideoId = (input) => {
   if (!input) {
     return null;
@@ -682,13 +707,15 @@ export const loadWatchHistory = async () => {
 export const saveToWatchHistory = async (item) => {
   try {
     const currentHistory = await loadWatchHistory();
+    const historyKey = getStreamHistoryKey(item);
     const nextHistory = [
       {
         ...item,
+        historyKey,
         watchedAt: Date.now(),
-        thumbnail: item.thumbnail || getStreamThumbnail(item.videoId),
+        thumbnail: item.thumbnail || (item.videoId ? getStreamThumbnail(item.videoId) : ''),
       },
-      ...currentHistory.filter((entry) => entry.videoId !== item.videoId),
+      ...currentHistory.filter((entry) => getStreamHistoryKey(entry) !== historyKey),
     ].slice(0, MAX_WATCH_HISTORY);
 
     await AsyncStorage.setItem(WATCH_HISTORY_STORAGE_KEY, JSON.stringify(nextHistory));

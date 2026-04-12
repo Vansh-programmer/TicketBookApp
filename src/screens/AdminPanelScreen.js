@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { useToast } from '../components/ToastProvider';
@@ -38,7 +40,8 @@ const INITIAL_STREAM_FORM = {
   format: '',
   mood: '',
   badge: '',
-  videoId: '',
+  thumbnailUrl: '',
+  embedUrl: '',
 };
 
 const INITIAL_THEATER_FORM = {
@@ -53,6 +56,8 @@ const INITIAL_THEATER_FORM = {
   primePrice: '',
   classicPrice: '',
 };
+
+const MAX_THUMBNAIL_DATA_URI_LENGTH = 850000;
 
 const AdminPanelScreen = ({ navigation }) => {
   const { isAdmin, profile, loading } = useSession();
@@ -124,9 +129,56 @@ const AdminPanelScreen = ({ navigation }) => {
     setEditingTheaterId(null);
   };
 
+  const handlePickThumbnail = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showToast('Gallery permission is required to upload thumbnails.', { type: 'error' });
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.35,
+        base64: true,
+      });
+
+      const selectedAsset = result.assets?.[0];
+      if (result.canceled || !selectedAsset) {
+        return;
+      }
+
+      if (!selectedAsset.base64) {
+        showToast('Unable to process this image. Try a smaller image.', { type: 'error' });
+        return;
+      }
+
+      const dataUri = `data:${selectedAsset.mimeType || 'image/jpeg'};base64,${selectedAsset.base64}`;
+      if (dataUri.length > MAX_THUMBNAIL_DATA_URI_LENGTH) {
+        showToast('Thumbnail too large. Choose a smaller image.', { type: 'error' });
+        return;
+      }
+
+      setStreamForm((current) => ({
+        ...current,
+        thumbnailUrl: dataUri,
+      }));
+    } catch (error) {
+      console.error('Unable to pick thumbnail image:', error);
+      showToast('Unable to upload thumbnail right now.', { type: 'error' });
+    }
+  };
+
   const handleSaveStream = async () => {
-    if (!streamForm.title.trim() || !streamForm.videoId.trim()) {
-      showToast('Stream title and YouTube link or video ID are required.', { type: 'error' });
+    if (!streamForm.title.trim() || !streamForm.embedUrl.trim()) {
+      showToast('Stream title and embed URL are required.', { type: 'error' });
+      return;
+    }
+
+    if (!streamForm.thumbnailUrl.trim()) {
+      showToast('Upload a thumbnail image before saving.', { type: 'error' });
       return;
     }
 
@@ -191,7 +243,8 @@ const AdminPanelScreen = ({ navigation }) => {
       format: entry.format || '',
       mood: entry.mood || '',
       badge: entry.badge || '',
-      videoId: entry.videoId || '',
+      thumbnailUrl: entry.thumbnail || '',
+      embedUrl: entry.embedUrl || '',
     });
   };
 
@@ -308,7 +361,7 @@ const AdminPanelScreen = ({ navigation }) => {
             <View>
               <Text style={styles.sectionTitle}>Manage Stream</Text>
               <Text style={styles.sectionText}>
-                Add or tune YouTube-backed titles shown in the Stream tab.
+                Add titles with uploaded thumbnails and embed playback links.
               </Text>
             </View>
             <TouchableOpacity style={styles.secondaryButton} onPress={resetStreamForm}>
@@ -317,6 +370,33 @@ const AdminPanelScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.formCard}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Thumbnail Image</Text>
+              {streamForm.thumbnailUrl ? (
+                <Image source={{ uri: streamForm.thumbnailUrl }} style={styles.thumbnailPreview} />
+              ) : (
+                <View style={styles.thumbnailPlaceholder}>
+                  <Ionicons name="image-outline" size={20} color="#9AA0A6" />
+                  <Text style={styles.thumbnailPlaceholderText}>No image selected</Text>
+                </View>
+              )}
+              <View style={styles.thumbnailActionsRow}>
+                <TouchableOpacity style={styles.secondaryButton} onPress={handlePickThumbnail}>
+                  <Text style={styles.secondaryButtonText}>
+                    {streamForm.thumbnailUrl ? 'Change image' : 'Upload image'}
+                  </Text>
+                </TouchableOpacity>
+                {streamForm.thumbnailUrl ? (
+                  <TouchableOpacity
+                    style={styles.secondaryButtonDanger}
+                    onPress={() => setStreamForm((current) => ({ ...current, thumbnailUrl: '' }))}
+                  >
+                    <Text style={styles.secondaryButtonDangerText}>Remove</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
             {[
               ['Title', 'title'],
               ['Description', 'description'],
@@ -328,7 +408,7 @@ const AdminPanelScreen = ({ navigation }) => {
               ['Format', 'format'],
               ['Mood', 'mood'],
               ['Badge', 'badge'],
-              ['YouTube Link or ID', 'videoId'],
+              ['Embed URL (https)', 'embedUrl'],
             ].map(([label, key]) => (
               <View key={key} style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>{label}</Text>
@@ -568,6 +648,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
+  secondaryButtonDanger: {
+    backgroundColor: '#3A1215',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  secondaryButtonDangerText: {
+    color: '#FFD9DD',
+    fontWeight: '700',
+  },
   formCard: {
     backgroundColor: '#121214',
     borderRadius: 8,
@@ -596,6 +686,34 @@ const styles = StyleSheet.create({
   inputLarge: {
     minHeight: 88,
     textAlignVertical: 'top',
+  },
+  thumbnailPreview: {
+    width: '100%',
+    height: 164,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#09090B',
+  },
+  thumbnailPlaceholder: {
+    height: 92,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#09090B',
+  },
+  thumbnailPlaceholderText: {
+    color: '#9AA0A6',
+    marginTop: 6,
+    fontSize: 12,
+  },
+  thumbnailActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
   },
   primaryButton: {
     marginTop: 8,
