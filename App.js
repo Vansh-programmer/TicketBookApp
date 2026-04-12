@@ -11,6 +11,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from './src/components/ToastProvider';
+import GlobalFlowBackground from './src/components/GlobalFlowBackground';
 import { initializeSoundEffects } from './src/config/soundManifest';
 import { SessionProvider } from './src/context/SessionProvider';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
@@ -74,45 +75,48 @@ export default function App() {
         <SafeAreaProvider>
           <SessionProvider>
             <ToastProvider>
-              <NavigationContainer>
-                <Stack.Navigator
-                  initialRouteName={isWeb ? 'Login' : 'Splash'}
-                  screenOptions={{
-                    headerShown: false,
-                    gestureEnabled: !isWeb,
-                    gestureDirection: isWeb ? undefined : 'horizontal',
-                    ...(isWeb ? {} : TransitionPresets.SlideFromRightIOS),
-                    cardStyleInterpolator: isWeb
-                      ? undefined
-                      : Platform.OS === 'ios'
-                        ? CardStyleInterpolators.forHorizontalIOS
-                        : CardStyleInterpolators.forFadeFromBottomAndroid,
-                    cardStyle: {
-                      backgroundColor: '#050505',
-                    },
-                  }}
-                >
-                  <Stack.Screen name="Splash" component={SplashScreen} />
-                  <Stack.Screen name="Login" component={LoginScreen} />
-                  <Stack.Screen name="Signup" component={SignupScreen} />
-                  <Stack.Screen name="Home" component={MainTabNavigator} />
-                  <Stack.Screen name="MyTickets" component={MyTicketsScreen} />
-                  <Stack.Screen name="Movies" component={MovieListScreen} />
-                  <Stack.Screen name="MovieDetails" component={MovieDetailsScreen} />
-                  <Stack.Screen name="LocationSelection" component={LocationSelectionScreen} />
-                  <Stack.Screen name="DateSelection" component={DateSelectionScreen} />
-                  <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
-                  <Stack.Screen name="DigitalTicket" component={DigitalTicketScreen} />
-                  <Stack.Screen
-                    name="Player"
-                    component={PlayerScreen}
-                    options={{
-                      gestureDirection: 'vertical',
-                      ...TransitionPresets.ModalSlideFromBottomIOS,
+              <View style={styles.appShell}>
+                <NavigationContainer>
+                  <Stack.Navigator
+                    initialRouteName={isWeb ? 'Login' : 'Splash'}
+                    screenOptions={{
+                      headerShown: false,
+                      gestureEnabled: !isWeb,
+                      gestureDirection: isWeb ? undefined : 'horizontal',
+                      ...(isWeb ? {} : TransitionPresets.SlideFromRightIOS),
+                      cardStyleInterpolator: isWeb
+                        ? undefined
+                        : Platform.OS === 'ios'
+                          ? CardStyleInterpolators.forHorizontalIOS
+                          : CardStyleInterpolators.forFadeFromBottomAndroid,
+                      cardStyle: {
+                        backgroundColor: '#050505',
+                      },
                     }}
-                  />
-                </Stack.Navigator>
-              </NavigationContainer>
+                  >
+                    <Stack.Screen name="Splash" component={SplashScreen} />
+                    <Stack.Screen name="Login" component={LoginScreen} />
+                    <Stack.Screen name="Signup" component={SignupScreen} />
+                    <Stack.Screen name="Home" component={MainTabNavigator} />
+                    <Stack.Screen name="MyTickets" component={MyTicketsScreen} />
+                    <Stack.Screen name="Movies" component={MovieListScreen} />
+                    <Stack.Screen name="MovieDetails" component={MovieDetailsScreen} />
+                    <Stack.Screen name="LocationSelection" component={LocationSelectionScreen} />
+                    <Stack.Screen name="DateSelection" component={DateSelectionScreen} />
+                    <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
+                    <Stack.Screen name="DigitalTicket" component={DigitalTicketScreen} />
+                    <Stack.Screen
+                      name="Player"
+                      component={PlayerScreen}
+                      options={{
+                        gestureDirection: 'vertical',
+                        ...TransitionPresets.ModalSlideFromBottomIOS,
+                      }}
+                    />
+                  </Stack.Navigator>
+                </NavigationContainer>
+                <GlobalFlowBackground />
+              </View>
             </ToastProvider>
           </SessionProvider>
         </SafeAreaProvider>
@@ -122,6 +126,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  appShell: {
+    flex: 1,
+    backgroundColor: '#04060A',
+  },
   errorShell: {
     flex: 1,
     backgroundColor: '#050505',
