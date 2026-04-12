@@ -128,6 +128,8 @@ const normalizePost = (docSnapshot) => {
     tenorPostId: data.tenorPostId || null,
     tenorAspectRatio: data.tenorAspectRatio || null,
     audioTitle: getDisplayText(data.audioTitle, ''),
+    voiceNoteUrl: data.voiceNoteUrl || null,
+    voiceNoteTitle: getDisplayText(data.voiceNoteTitle, ''),
     likedBy,
     likes: likedBy.length > 0 ? likedBy.length : typeof data.likes === 'number' ? data.likes : 0,
     createdAtMs:
@@ -189,6 +191,8 @@ export const createCommunityPost = async ({
   tenorPostId,
   tenorAspectRatio,
   audioTitle,
+  voiceNoteUrl,
+  voiceNoteTitle,
 }) => {
   if (!db) {
     const error = new Error('Firebase is not configured for this build.');
@@ -211,6 +215,8 @@ export const createCommunityPost = async ({
     tenorPostId: tenorPostId || null,
     tenorAspectRatio: tenorAspectRatio || null,
     audioTitle: audioTitle || '',
+    voiceNoteUrl: voiceNoteUrl || null,
+    voiceNoteTitle: voiceNoteTitle || '',
     likes: 0,
     likedBy: [],
     comments: [],

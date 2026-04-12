@@ -126,7 +126,7 @@ const extractTenorPostId = (value) => {
 };
 
 const extractTenorAspectRatio = (value) =>
-  value.match(/data-aspect-ratio=["']?([0-9.]+)/i)?.[1] || '1.15';
+  value.match(/data-aspect-ratio=["']?([0-9.]+)/i)?.[1] || null;
 
 const extractTenorPrimaryUrl = (value, fallbackPostId) => {
   if (/^https?:\/\//i.test(value.trim())) {
@@ -220,7 +220,7 @@ const buildTenorEmbedFromPost = (post) => {
   return {
     title: post.mediaLabel || 'Tenor GIF',
     postId: post.tenorPostId,
-    aspectRatio: post.tenorAspectRatio || '1.15',
+    aspectRatio: post.tenorAspectRatio || '1',
     primaryUrl: post.mediaUrl || 'https://tenor.com',
     secondaryLabel: 'Tenor GIFs',
     secondaryUrl: 'https://tenor.com/search/gifs',
@@ -375,6 +375,7 @@ const CommunityScreen = () => {
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [feedError, setFeedError] = useState('');
   const [activeAudioPostId, setActiveAudioPostId] = useState(null);
+  const [mediaAspectRatios, setMediaAspectRatios] = useState({});
   const voiceRecorder = useAudioRecorder(RecordingPresets.LOW_QUALITY);
   const voiceRecorderState = useAudioRecorderState(voiceRecorder, 180);
   const audioPlayerRef = useRef(null);
@@ -479,6 +480,31 @@ const CommunityScreen = () => {
     setActiveAudioPostId(null);
   };
 
+  const cacheMediaAspectRatio = (mediaKey, width, height) => {
+    if (!mediaKey || !width || !height) {
+      return;
+    }
+
+    const rawAspectRatio = width / height;
+    if (!Number.isFinite(rawAspectRatio) || rawAspectRatio <= 0) {
+      return;
+    }
+
+    const clampedAspectRatio = Math.min(2.4, Math.max(0.5, rawAspectRatio));
+
+    setMediaAspectRatios((current) => {
+      const previousValue = current[mediaKey];
+      if (previousValue && Math.abs(previousValue - clampedAspectRatio) < 0.01) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [mediaKey]: clampedAspectRatio,
+      };
+    });
+  };
+
   const toggleAudioPost = async (post) => {
     const isCurrentPostActive =
       activeAudioPostIdRef.current === post.id && audioPlayerRef.current?.playing;
@@ -577,8 +603,6 @@ const CommunityScreen = () => {
       voiceCaptureStartedAtRef.current = Date.now();
       setIsRecordingVoice(true);
       setRecordedVoiceNote(null);
-      setSelectedImage(null);
-      setPostMediaInput('');
       setVoiceError('');
       setFeedError('');
     } catch (error) {
@@ -686,12 +710,12 @@ const CommunityScreen = () => {
       return;
     }
 
-    let attachment = null;
+    let primaryAttachment = null;
 
     if (!hasSelectedImage && hasLinkAttachment) {
-      attachment = getMediaAttachmentFromInput(trimmedMediaInput);
-    } else if (!hasSelectedImage && hasVoiceAttachment) {
-      attachment = {
+      primaryAttachment = getMediaAttachmentFromInput(trimmedMediaInput);
+    } else if (!hasSelectedImage && !hasLinkAttachment && hasVoiceAttachment) {
+      primaryAttachment = {
         mediaType: 'audio',
         mediaUrl: null,
         mediaLabel: 'Voice note',
@@ -699,8 +723,8 @@ const CommunityScreen = () => {
       };
     }
 
-    if (attachment?.error) {
-      setFeedError(attachment.error);
+    if (primaryAttachment?.error) {
+      setFeedError(primaryAttachment.error);
       return;
     }
 
@@ -712,9 +736,19 @@ const CommunityScreen = () => {
         censorText(postText),
       ]);
 
-      let uploadedVoiceUrl = attachment?.mediaUrl || null;
-      if (attachment?.mediaType === 'audio' && hasVoiceAttachment) {
-        uploadedVoiceUrl = await uploadVoiceNoteToStorage(recordedVoiceNote);
+      let uploadedPrimaryMediaUrl = primaryAttachment?.mediaUrl || null;
+      let uploadedVoiceNoteUrl = null;
+      let uploadedVoiceNoteTitle = '';
+
+      if (hasVoiceAttachment) {
+        const uploadedRecorderVoiceUrl = await uploadVoiceNoteToStorage(recordedVoiceNote);
+
+        if (primaryAttachment?.mediaType === 'audio') {
+          uploadedPrimaryMediaUrl = uploadedRecorderVoiceUrl;
+        } else {
+          uploadedVoiceNoteUrl = uploadedRecorderVoiceUrl;
+          uploadedVoiceNoteTitle = recordedVoiceNote.title || 'Voice note';
+        }
       }
 
       await createCommunityPost({
@@ -724,12 +758,14 @@ const CommunityScreen = () => {
         topic: censoredTopic,
         text: censoredPostText,
         imageData: selectedImage?.dataUri || null,
-        mediaUrl: uploadedVoiceUrl,
-        mediaType: attachment?.mediaType || null,
-        mediaLabel: attachment?.mediaLabel || '',
-        tenorPostId: attachment?.tenorPostId || null,
-        tenorAspectRatio: attachment?.tenorAspectRatio || null,
-        audioTitle: attachment?.audioTitle || '',
+        mediaUrl: uploadedPrimaryMediaUrl,
+        mediaType: primaryAttachment?.mediaType || null,
+        mediaLabel: primaryAttachment?.mediaLabel || '',
+        tenorPostId: primaryAttachment?.tenorPostId || null,
+        tenorAspectRatio: primaryAttachment?.tenorAspectRatio || null,
+        audioTitle: primaryAttachment?.audioTitle || '',
+        voiceNoteUrl: uploadedVoiceNoteUrl,
+        voiceNoteTitle: uploadedVoiceNoteTitle,
       });
 
       setPostTopic('');
@@ -809,11 +845,19 @@ const CommunityScreen = () => {
   };
 
   const renderMediaAttachment = (item, theme) => {
-    if (item.mediaType === 'audio' && item.mediaUrl) {
-      const isPlaying = activeAudioPostId === item.id;
+    const renderAudioAttachmentCard = ({ playbackId, audioUrl, title }) => {
+      if (!audioUrl) {
+        return null;
+      }
+
+      const isPlaying = activeAudioPostId === playbackId;
 
       return (
-        <AnimatedPressable onPress={() => toggleAudioPost(item)} style={styles.audioCard}>
+        <AnimatedPressable
+          key={playbackId}
+          onPress={() => toggleAudioPost({ id: playbackId, mediaUrl: audioUrl })}
+          style={styles.audioCard}
+        >
           <GlassSurface style={styles.audioCardSurface}>
             <View style={styles.audioCardInner}>
               <View style={[styles.audioIconWrap, { backgroundColor: theme.accentSoft }]}>
@@ -821,7 +865,7 @@ const CommunityScreen = () => {
               </View>
               <View style={styles.audioMeta}>
                 <Text style={styles.audioTitle} numberOfLines={1}>
-                  {item.audioTitle || item.mediaLabel || 'Community sound'}
+                  {title || 'Community sound'}
                 </Text>
                 <Text style={[styles.audioHint, { color: theme.muted }]}>
                   {isPlaying ? 'Tap to stop' : 'Tap to play'}
@@ -832,49 +876,114 @@ const CommunityScreen = () => {
           </GlassSurface>
         </AnimatedPressable>
       );
+    };
+
+    if (item.mediaType === 'audio' && item.mediaUrl) {
+      return (
+        <>
+          {renderAudioAttachmentCard({
+            playbackId: item.id,
+            audioUrl: item.mediaUrl,
+            title: item.audioTitle || item.mediaLabel,
+          })}
+          {item.voiceNoteUrl && item.voiceNoteUrl !== item.mediaUrl
+            ? renderAudioAttachmentCard({
+                playbackId: `${item.id}-voice`,
+                audioUrl: item.voiceNoteUrl,
+                title: item.voiceNoteTitle || 'Voice note',
+              })
+            : null}
+        </>
+      );
     }
 
     const tenorEmbed = buildTenorEmbedFromPost(item);
     if (tenorEmbed) {
-      const aspectRatio = Number(tenorEmbed.aspectRatio) || 1.15;
+      const parsedAspectRatio = Number(tenorEmbed.aspectRatio);
+      const aspectRatio =
+        Number.isFinite(parsedAspectRatio) && parsedAspectRatio > 0
+          ? Math.min(2.4, Math.max(0.5, parsedAspectRatio))
+          : 1;
       const tenorEmbedHtml = buildTenorEmbedHtml(tenorEmbed);
 
       return (
-        <GlassSurface style={[styles.tenorShell, { aspectRatio }]}>
-          {Platform.OS === 'web' ? (
-            <iframe
-              title={tenorEmbed.title}
-              srcDoc={tenorEmbedHtml}
-              style={styles.tenorFrame}
-            />
-          ) : (
-            <NativeWebView
-              originWhitelist={['*']}
-              source={{ html: tenorEmbedHtml }}
-              style={styles.tenorWebView}
-              scrollEnabled={false}
-              javaScriptEnabled
-              domStorageEnabled
-              automaticallyAdjustContentInsets={false}
-            />
-          )}
-        </GlassSurface>
+        <>
+          <GlassSurface style={[styles.tenorShell, { aspectRatio }]}> 
+            {Platform.OS === 'web' ? (
+              <iframe
+                title={tenorEmbed.title}
+                srcDoc={tenorEmbedHtml}
+                style={styles.tenorFrame}
+              />
+            ) : (
+              <NativeWebView
+                originWhitelist={['*']}
+                source={{ html: tenorEmbedHtml }}
+                style={styles.tenorWebView}
+                scrollEnabled={false}
+                javaScriptEnabled
+                domStorageEnabled
+                automaticallyAdjustContentInsets={false}
+              />
+            )}
+          </GlassSurface>
+          {item.voiceNoteUrl
+            ? renderAudioAttachmentCard({
+                playbackId: `${item.id}-voice`,
+                audioUrl: item.voiceNoteUrl,
+                title: item.voiceNoteTitle || 'Voice note',
+              })
+            : null}
+        </>
       );
     }
 
     if (item.mediaUrl || item.imageUri) {
       const mediaUri = item.mediaUrl || item.imageUri;
+      const isGifMedia = item.mediaType === 'gif';
+      const mediaKey = `${item.id}:${mediaUri}`;
+      const mediaAspectRatio = mediaAspectRatios[mediaKey];
 
       return (
-        <View style={styles.mediaWrap}>
-          <Image source={{ uri: mediaUri }} style={styles.postImage} resizeMode="cover" />
-          {item.mediaType === 'gif' ? (
-            <View style={[styles.mediaTypeChip, { backgroundColor: theme.accentSoft }]}>
-              <Text style={[styles.mediaTypeChipText, { color: theme.accent }]}>GIF</Text>
-            </View>
-          ) : null}
-        </View>
+        <>
+          <View style={styles.mediaWrap}>
+            <Image
+              source={{ uri: mediaUri }}
+              style={[
+                styles.postImage,
+                isGifMedia ? styles.postGif : null,
+                mediaAspectRatio ? styles.postImageDynamic : null,
+                mediaAspectRatio ? { aspectRatio: mediaAspectRatio } : null,
+              ]}
+              resizeMode={isGifMedia ? 'contain' : 'cover'}
+              onLoad={(event) => {
+                const source = event?.nativeEvent?.source;
+                cacheMediaAspectRatio(mediaKey, source?.width, source?.height);
+              }}
+            />
+            {isGifMedia ? (
+              <View style={[styles.mediaTypeChip, { backgroundColor: theme.accentSoft }]}> 
+                <Text style={[styles.mediaTypeChipText, { color: theme.accent }]}>GIF</Text>
+              </View>
+            ) : null}
+          </View>
+          {item.voiceNoteUrl
+            ? renderAudioAttachmentCard({
+                playbackId: `${item.id}-voice`,
+                audioUrl: item.voiceNoteUrl,
+                title: item.voiceNoteTitle || 'Voice note',
+              })
+            : null}
+        </>
       );
+    }
+
+    if (item.voiceNoteUrl) {
+      return renderAudioAttachmentCard({
+        playbackId: `${item.id}-voice`,
+        audioUrl: item.voiceNoteUrl,
+        title: item.voiceNoteTitle || 'Voice note',
+      });
     }
 
     return null;
@@ -1624,6 +1733,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 232,
   },
+  postImageDynamic: {
+    height: undefined,
+    minHeight: 180,
+    maxHeight: 420,
+  },
+  postGif: {
+    backgroundColor: '#07090F',
+  },
   mediaTypeChip: {
     position: 'absolute',
     top: 12,
@@ -1641,6 +1758,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     borderRadius: 8,
     overflow: 'hidden',
+    minHeight: 220,
   },
   tenorFrame: {
     width: '100%',
