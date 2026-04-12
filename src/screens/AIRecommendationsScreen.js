@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -11,8 +11,13 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useToast } from '../components/ToastProvider';
+import {
+  formatRelativeTime,
+  subscribeToCommunityPosts,
+} from '../services/community';
 import {
   fetchGeminiMovieRecommendations,
   isGeminiConfigured,
@@ -25,13 +30,79 @@ const QUICK_PROMPTS = [
   'Sharp satire',
 ];
 
+const QUICK_PROMPT_ACCENTS = [
+  { backgroundColor: 'rgba(96, 165, 250, 0.18)', borderColor: 'rgba(96, 165, 250, 0.38)' },
+  { backgroundColor: 'rgba(74, 222, 128, 0.16)', borderColor: 'rgba(74, 222, 128, 0.34)' },
+  { backgroundColor: 'rgba(248, 113, 113, 0.16)', borderColor: 'rgba(248, 113, 113, 0.35)' },
+  { backgroundColor: 'rgba(251, 191, 36, 0.16)', borderColor: 'rgba(251, 191, 36, 0.34)' },
+];
+
 const AIRecommendationsScreen = () => {
   const navigation = useNavigation();
   const { showToast } = useToast();
   const [prompt, setPrompt] = useState('');
   const [recommendations, setRecommendations] = useState([]);
+  const [communityRecommendations, setCommunityRecommendations] = useState([]);
+  const [communityLoaded, setCommunityLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const getCompactReason = (reason = '') => {
+    const normalized = reason.replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return 'AI pick';
+    }
+
+    return normalized.length > 24 ? `${normalized.slice(0, 24)}...` : normalized;
+  };
+
+  useEffect(() => {
+    const unsubscribe = subscribeToCommunityPosts(
+      (posts) => {
+        const recommendationPattern = /(movie|series|show|watch|recommend|suggest|must watch)/i;
+
+        const mappedPosts = posts
+          .filter((post) => {
+            const searchableText = `${post.topic || ''} ${post.text || ''}`;
+            return recommendationPattern.test(searchableText);
+          })
+          .map((post) => ({
+            id: post.id,
+            title: (post.topic || 'Community recommendation').trim(),
+            text: (post.text || '').trim(),
+            likes: post.likes || 0,
+            commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
+            createdAtMs: post.createdAtMs || Date.now(),
+          }))
+          .slice(0, 6);
+
+        setCommunityRecommendations(mappedPosts);
+        setCommunityLoaded(true);
+      },
+      () => {
+        setCommunityRecommendations([]);
+        setCommunityLoaded(true);
+      },
+    );
+
+    return unsubscribe;
+  }, []);
+
+  const shouldShowCommunityEmpty = useMemo(
+    () => communityLoaded && communityRecommendations.length === 0,
+    [communityLoaded, communityRecommendations.length],
+  );
+
+  const openCommunity = () => {
+    const routeNames = navigation.getState?.()?.routeNames || [];
+
+    if (routeNames.includes('Community')) {
+      navigation.navigate('Community');
+      return;
+    }
+
+    navigation.getParent()?.navigate('Home', { screen: 'Community' });
+  };
 
   const requestRecommendations = async (nextPrompt = prompt) => {
     const trimmedPrompt = nextPrompt.trim();
@@ -72,10 +143,8 @@ const AIRecommendationsScreen = () => {
       <View style={styles.emptyIcon}>
         <Ionicons name="film-outline" size={24} color="#F7D27D" />
       </View>
-      <Text style={styles.emptyTitle}>Tell us the mood</Text>
-      <Text style={styles.emptyText}>
-        Try a genre, occasion, actor, or pace. Your picks will appear here.
-      </Text>
+      <Text style={styles.emptyTitle}>Start with a mood</Text>
+      <Text style={styles.emptyText}>Your picks appear here.</Text>
     </View>
   );
 
@@ -84,9 +153,9 @@ const AIRecommendationsScreen = () => {
       <View style={styles.heroCard}>
         <View style={styles.heroBadge}>
           <Ionicons name="film-outline" size={16} color="#FACC15" />
-          <Text style={styles.heroBadgeText}>Curated picks</Text>
+          <Text style={styles.heroBadgeText}>Picks</Text>
         </View>
-        <Text style={styles.heroTitle}>Find the right film for tonight</Text>
+        <Text style={styles.heroTitle}>Pick your vibe</Text>
 
         {!isGeminiConfigured ? (
           <View style={styles.warningCard}>
@@ -100,17 +169,17 @@ const AIRecommendationsScreen = () => {
         <TextInput
           value={prompt}
           onChangeText={setPrompt}
-          placeholder="Romantic dramas, dark sci-fi, comfort movies..."
+          placeholder="Mood, genre, actor..."
           placeholderTextColor="#75757C"
           multiline
           style={styles.promptInput}
         />
 
         <View style={styles.quickPromptRow}>
-          {QUICK_PROMPTS.map((quickPrompt) => (
+          {QUICK_PROMPTS.map((quickPrompt, index) => (
             <TouchableOpacity
               key={quickPrompt}
-              style={styles.quickPromptChip}
+              style={[styles.quickPromptChip, QUICK_PROMPT_ACCENTS[index % QUICK_PROMPT_ACCENTS.length]]}
               onPress={() => {
                 setPrompt(quickPrompt);
                 requestRecommendations(quickPrompt);
@@ -128,21 +197,74 @@ const AIRecommendationsScreen = () => {
           disabled={loading}
           activeOpacity={0.88}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <>
-              <Ionicons name="search-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.primaryButtonText}>Find matches</Text>
-            </>
-          )}
+          <LinearGradient
+            colors={['#F43F5E', '#EF4444', '#EC4899']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.primaryButtonGradient}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="search-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.primaryButtonText}>Search</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
 
       <View style={styles.resultsHeader}>
-        <Text style={styles.resultsTitle}>Your matches</Text>
+        <Text style={styles.resultsTitle}>Community recommended series/movies</Text>
+        <Text style={styles.resultsSubtitle}>Posts from community recommendations.</Text>
+      </View>
+
+      {communityRecommendations.map((item) => (
+        <TouchableOpacity
+          key={item.id}
+          style={styles.communityCard}
+          onPress={openCommunity}
+          activeOpacity={0.86}
+        >
+          <View style={styles.communityCardTopRow}>
+            <Text style={styles.communityTitle} numberOfLines={1}>{item.title}</Text>
+            <Text style={styles.communityTime}>{formatRelativeTime(item.createdAtMs)}</Text>
+          </View>
+          <Text style={styles.communityText} numberOfLines={2}>
+            {item.text || 'Open Community to read this recommendation.'}
+          </Text>
+          <View style={styles.communityMetaRow}>
+            <View style={styles.communityMetaPill}>
+              <Ionicons name="heart-outline" size={13} color="#FCA5A5" />
+              <Text style={styles.communityMetaText}>{item.likes}</Text>
+            </View>
+            <View style={styles.communityMetaPill}>
+              <Ionicons name="chatbubble-ellipses-outline" size={13} color="#93C5FD" />
+              <Text style={styles.communityMetaText}>{item.commentsCount}</Text>
+            </View>
+            <View style={styles.communityCtaWrap}>
+              <Text style={styles.communityCtaText}>Open community</Text>
+              <Ionicons name="arrow-forward" size={13} color="#F7D27D" />
+            </View>
+          </View>
+        </TouchableOpacity>
+      ))}
+
+      {shouldShowCommunityEmpty ? (
+        <View style={styles.emptyCard}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="people-outline" size={24} color="#F7D27D" />
+          </View>
+          <Text style={styles.emptyTitle}>Community recommendations</Text>
+          <Text style={styles.emptyText}>Recommended series/movie posts will show here.</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.resultsHeader}>
+        <Text style={styles.resultsTitle}>AI picks</Text>
       </View>
 
       {recommendations.length === 0 && !loading ? (
@@ -173,7 +295,7 @@ const AIRecommendationsScreen = () => {
               </View>
               <View style={styles.metaPill}>
                 <Ionicons name="albums-outline" size={14} color="#60A5FA" />
-                <Text style={styles.metaText} numberOfLines={1}>{recommendation.reason}</Text>
+                <Text style={styles.metaText} numberOfLines={1}>{getCompactReason(recommendation.reason)}</Text>
               </View>
             </View>
 
@@ -208,26 +330,26 @@ const AIRecommendationsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#05070B',
   },
   content: {
     padding: 20,
     paddingBottom: 28,
-    gap: 18,
+    gap: 14,
   },
   heroCard: {
-    backgroundColor: '#101217',
+    backgroundColor: '#101622',
     borderRadius: 8,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(126, 192, 255, 0.2)',
   },
   heroBadge: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(250, 204, 21, 0.12)',
+    backgroundColor: 'rgba(250, 204, 21, 0.14)',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -240,7 +362,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 30,
     fontWeight: '800',
     marginBottom: 16,
   },
@@ -261,11 +383,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   promptInput: {
-    minHeight: 110,
+    minHeight: 84,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    backgroundColor: '#16171A',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: '#161C29',
     color: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -280,19 +402,21 @@ const styles = StyleSheet.create({
   },
   quickPromptChip: {
     borderRadius: 8,
-    backgroundColor: '#1E2024',
+    borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   quickPromptText: {
-    color: '#E8E8EA',
+    color: '#F0F4FB',
     fontSize: 12,
     fontWeight: '600',
   },
   primaryButton: {
     marginTop: 18,
     borderRadius: 8,
-    backgroundColor: '#E50914',
+    overflow: 'hidden',
+  },
+  primaryButtonGradient: {
     paddingVertical: 15,
     justifyContent: 'center',
     alignItems: 'center',
@@ -317,16 +441,82 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   resultsTitle: {
-    color: '#FFFFFF',
+    color: '#EAF0FF',
     fontSize: 20,
     fontWeight: '800',
+  },
+  resultsSubtitle: {
+    color: '#8FA1BC',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  communityCard: {
+    backgroundColor: '#101622',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(247, 210, 125, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  communityCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  communityTitle: {
+    flex: 1,
+    color: '#F5F8FF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  communityTime: {
+    color: '#90A1BB',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  communityText: {
+    color: '#C6D2E6',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  communityMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  communityMetaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  communityMetaText: {
+    color: '#E6ECF8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  communityCtaWrap: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  communityCtaText: {
+    color: '#F7D27D',
+    fontSize: 12,
+    fontWeight: '700',
   },
   emptyCard: {
     alignItems: 'center',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: '#101217',
+    backgroundColor: '#101622',
     paddingHorizontal: 22,
     paddingVertical: 28,
   },
@@ -353,10 +543,10 @@ const styles = StyleSheet.create({
   },
   resultCard: {
     flexDirection: 'row',
-    backgroundColor: '#101217',
+    backgroundColor: '#101622',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(126, 192, 255, 0.18)',
     padding: 14,
     gap: 14,
   },
