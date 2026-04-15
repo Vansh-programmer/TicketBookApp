@@ -24,15 +24,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ffffff33',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor: 'rgba(229, 9, 20, 0.18)',
+    backgroundColor: 'rgba(10, 10, 10, 0.84)',
   },
   blur: {
     ...StyleSheet.absoluteFillObject,
   },
   inner: {
     position: 'relative',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(10, 10, 10, 0.45)',
   },
 });
 

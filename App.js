@@ -128,11 +128,11 @@ export default function App() {
 const styles = StyleSheet.create({
   appShell: {
     flex: 1,
-    backgroundColor: '#04060A',
+    backgroundColor: '#020202',
   },
   errorShell: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#020202',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,

@@ -15,7 +15,7 @@ import AnimatedPressable from './AnimatedPressable';
 const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient);
 
 const NeonGlowButton = ({
-  colors = ['#2AFADF', '#4C83FF', '#F72585'],
+  colors = ['#FF6B6B', '#E50914', '#7A1015'],
   contentStyle,
   disabled = false,
   iconName,
@@ -60,7 +60,7 @@ const NeonGlowButton = ({
         />
       </Animated.View>
       <LinearGradient
-        colors={disabled ? ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.08)'] : colors}
+        colors={disabled ? ['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.06)'] : colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientBorder}
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   innerButton: {
     minHeight: 52,
     borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    backgroundColor: 'rgba(0, 0, 0, 0.94)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   innerButtonDisabled: {
-    backgroundColor: 'rgba(20, 20, 20, 0.96)',
+    backgroundColor: 'rgba(18, 18, 18, 0.96)',
   },
   label: {
     color: '#FFFFFF',

@@ -134,7 +134,7 @@ const GlobalFlowBackground = () => {
     >
       <AnimatedView style={[styles.orb, styles.orbTopLeft, orbAStyle]}>
         <LinearGradient
-          colors={['rgba(86, 221, 255, 0.2)', 'rgba(53, 80, 255, 0.08)', 'rgba(255, 120, 159, 0)']}
+          colors={['rgba(229, 9, 20, 0.18)', 'rgba(120, 12, 18, 0.1)', 'rgba(255, 120, 159, 0)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -143,7 +143,7 @@ const GlobalFlowBackground = () => {
 
       <AnimatedView style={[styles.orb, styles.orbBottomRight, orbBStyle]}>
         <LinearGradient
-          colors={['rgba(255, 200, 95, 0.2)', 'rgba(255, 90, 144, 0.1)', 'rgba(255, 255, 255, 0)']}
+          colors={['rgba(229, 9, 20, 0.16)', 'rgba(80, 8, 12, 0.08)', 'rgba(255, 255, 255, 0)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -152,7 +152,7 @@ const GlobalFlowBackground = () => {
 
       <AnimatedView style={[styles.shimmerBand, shimmerStyle]}>
         <LinearGradient
-          colors={['rgba(255,255,255,0)', 'rgba(120, 219, 255, 0.09)', 'rgba(255,255,255,0)']}
+          colors={['rgba(255,255,255,0)', 'rgba(229, 9, 20, 0.08)', 'rgba(255,255,255,0)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFill}
@@ -176,14 +176,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   orbTopLeft: {
-    width: 360,
-    height: 360,
+    width: 340,
+    height: 340,
     top: -120,
     left: -120,
   },
   orbBottomRight: {
-    width: 420,
-    height: 420,
+    width: 400,
+    height: 400,
     right: -150,
     bottom: -170,
   },
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     width: 300,
     height: '140%',
     top: '-20%',
-    opacity: 0.8,
+    opacity: 0.55,
   },
 });
 

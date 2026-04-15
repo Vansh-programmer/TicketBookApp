@@ -22,7 +22,7 @@ const TOAST_ICONS = {
 const TOAST_COLORS = {
   success: '#22C55E',
   error: '#FF6B6B',
-  info: '#60A5FA',
+  info: '#E50914',
 };
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#101010',
+    backgroundColor: '#070707',
     borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 14,
