@@ -66,6 +66,7 @@ const PlayerScreen = () => {
   } = route.params ?? {};
   const [playerError, setPlayerError] = useState(false);
   const [redirectBlocked, setRedirectBlocked] = useState(false);
+  const [manualFullscreen, setManualFullscreen] = useState(false);
   const windowSize = useWindowDimensions();
   const resolvedSubtitle = useMemo(() => {
     const normalizedSubtitle = typeof subtitle === 'string' ? subtitle.trim() : '';
@@ -74,6 +75,7 @@ const PlayerScreen = () => {
 
   const customEmbedUrl = useMemo(() => normalizeHttpsUrl(rawEmbedUrl), [rawEmbedUrl]);
   const isFullscreenLandscape = Platform.OS !== 'web' && windowSize.width > windowSize.height;
+  const isFullscreenMode = manualFullscreen || isFullscreenLandscape;
   const playerHeight = Math.min(windowSize.width * 0.58, 300);
   const embedUrl = useMemo(() => customEmbedUrl, [customEmbedUrl]);
   const trustedHost = useMemo(() => getHostname(embedUrl), [embedUrl]);
@@ -117,22 +119,31 @@ const PlayerScreen = () => {
       return undefined;
     }
 
-    const lockLandscape = async () => {
-      try {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-      } catch (error) {
-        console.warn('Unable to lock player orientation:', error);
-      }
-    };
-
-    void lockLandscape();
-
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.DEFAULT).catch((error) => {
         console.warn('Unable to restore orientation after player close:', error);
       });
     };
   }, []);
+
+  const toggleFullscreen = async () => {
+    if (Platform.OS === 'web') {
+      setManualFullscreen((current) => !current);
+      return;
+    }
+
+    try {
+      if (!manualFullscreen) {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+        setManualFullscreen(true);
+      } else {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        setManualFullscreen(false);
+      }
+    } catch (error) {
+      console.warn('Unable to toggle fullscreen mode:', error);
+    }
+  };
 
   const handleOpenExternally = async () => {
     if (!embedUrl) {
@@ -168,10 +179,10 @@ const PlayerScreen = () => {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.content, isFullscreenLandscape && styles.contentLandscape]}
-      scrollEnabled={!isFullscreenLandscape}
+      contentContainerStyle={[styles.content, isFullscreenMode && styles.contentLandscape]}
+      scrollEnabled={!isFullscreenMode}
     >
-      {isFullscreenLandscape ? (
+      {isFullscreenMode ? (
         <TouchableOpacity style={styles.landscapeBackButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
@@ -188,7 +199,7 @@ const PlayerScreen = () => {
       <View
         style={[
           styles.playerShell,
-          isFullscreenLandscape ? styles.playerShellLandscape : { height: playerHeight },
+          isFullscreenMode ? styles.playerShellLandscape : { height: playerHeight },
         ]}
       >
         {embedUrl && !playerError ? (
@@ -245,21 +256,28 @@ const PlayerScreen = () => {
         )}
       </View>
 
-      {!isFullscreenLandscape && redirectBlocked ? (
+      {!isFullscreenMode && redirectBlocked ? (
         <View style={styles.redirectNotice}>
           <Ionicons name="shield-checkmark-outline" size={16} color="#F9C56E" />
           <Text style={styles.redirectNoticeText}>Redirect blocked. Use Open in browser if needed.</Text>
         </View>
       ) : null}
 
-        {!isFullscreenLandscape && embedUrl ? (
-          <TouchableOpacity style={styles.externalOpenButton} onPress={handleOpenExternally}>
-            <Ionicons name="open-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.externalOpenButtonText}>Open in browser</Text>
+      {embedUrl ? (
+        <View style={[styles.controlRow, isFullscreenMode && styles.controlRowFullscreen]}>
+          <TouchableOpacity style={styles.controlButton} onPress={toggleFullscreen}>
+            <Ionicons name={isFullscreenMode ? 'contract-outline' : 'expand-outline'} size={18} color="#FFFFFF" />
+            <Text style={styles.controlButtonText}>{isFullscreenMode ? 'Exit full screen' : 'Full screen'}</Text>
           </TouchableOpacity>
-        ) : null}
 
-      {!isFullscreenLandscape ? (
+          <TouchableOpacity style={styles.controlButton} onPress={handleOpenExternally}>
+            <Ionicons name="open-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.controlButtonText}>Open in browser</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {!isFullscreenMode ? (
         <View style={styles.metaCard}>
           {badge ? <Text style={styles.badge}>{badge}</Text> : null}
           <Text style={styles.title}>{title}</Text>
@@ -440,6 +458,35 @@ const styles = StyleSheet.create({
   externalOpenButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  controlRow: {
+    marginTop: 14,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  controlRowFullscreen: {
+    position: 'absolute',
+    right: 14,
+    bottom: 14,
+    zIndex: 14,
+    marginTop: 0,
+  },
+  controlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(18, 21, 28, 0.92)',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  controlButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
   },
   metaCard: {
     marginTop: 18,
