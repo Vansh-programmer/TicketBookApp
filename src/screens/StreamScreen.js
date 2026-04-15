@@ -121,8 +121,21 @@ const StreamScreen = ({ navigation }) => {
       const syncWatchHistory = async () => {
         const history = await loadWatchHistory();
         if (isMounted) {
+          const currentCatalogMap = new Map(
+            catalog.map((item) => [getStreamHistoryKey(item), item]),
+          );
+
           setWatchHistory(
-            history.filter((item) => typeof item?.embedUrl === 'string' && item.embedUrl.trim()),
+            history
+              .filter((item) => typeof item?.embedUrl === 'string' && item.embedUrl.trim())
+              .map((item) => {
+                const matchedItem = currentCatalogMap.get(getStreamHistoryKey(item));
+                return {
+                  ...item,
+                  thumbnail:
+                    item.thumbnail || matchedItem?.thumbnail || matchedItem?.posterUrl || '',
+                };
+              }),
           );
         }
       };
@@ -132,7 +145,7 @@ const StreamScreen = ({ navigation }) => {
       return () => {
         isMounted = false;
       };
-    }, []),
+    }, [catalog]),
   );
 
   const normalizedQuery = searchQuery.trim().toLowerCase();

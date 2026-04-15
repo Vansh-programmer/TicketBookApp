@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchMovieDetails, getImageUrl } from './tmdb';
 
 const WATCH_HISTORY_STORAGE_KEY = '@ticketbookapp/watch-history-v1';
 const VID_SRC_CATALOG_CACHE_KEY = '@ticketbookapp/vidsrc-catalog-v1';
+const TMDB_POSTER_CACHE_KEY = '@ticketbookapp/tmdb-poster-cache-v1';
 const MAX_WATCH_HISTORY = 6;
 
 export const STREAM_CATALOG = [
@@ -607,6 +609,62 @@ const VID_SRC_EMBED_HOSTS = [
 const STREAM_PLACEHOLDER_THUMBNAIL =
   'https://dummyimage.com/1280x720/0b1220/ffffff.png&text=TicketBook+Stream';
 
+let tmdbPosterCache = null;
+
+const loadTmdbPosterCache = async () => {
+  if (tmdbPosterCache) {
+    return tmdbPosterCache;
+  }
+
+  try {
+    const rawCache = await AsyncStorage.getItem(TMDB_POSTER_CACHE_KEY);
+    tmdbPosterCache = rawCache ? JSON.parse(rawCache) : {};
+  } catch (error) {
+    console.error('Unable to load TMDB poster cache:', error);
+    tmdbPosterCache = {};
+  }
+
+  return tmdbPosterCache;
+};
+
+const saveTmdbPosterCache = async () => {
+  if (!tmdbPosterCache) {
+    return;
+  }
+
+  try {
+    await AsyncStorage.setItem(TMDB_POSTER_CACHE_KEY, JSON.stringify(tmdbPosterCache));
+  } catch (error) {
+    console.error('Unable to save TMDB poster cache:', error);
+  }
+};
+
+const resolvePosterUrlForTmdbId = async (tmdbId) => {
+  const normalizedTmdbId = normalizeVidSrcIdentifier(tmdbId);
+  if (!normalizedTmdbId) {
+    return '';
+  }
+
+  const cache = await loadTmdbPosterCache();
+  if (cache[normalizedTmdbId]) {
+    return cache[normalizedTmdbId];
+  }
+
+  try {
+    const details = await fetchMovieDetails(Number(normalizedTmdbId));
+    const posterUrl = getImageUrl(details?.poster_path || details?.backdrop_path, 'w500') || '';
+    cache[normalizedTmdbId] = posterUrl || STREAM_PLACEHOLDER_THUMBNAIL;
+    tmdbPosterCache = cache;
+    void saveTmdbPosterCache();
+    return cache[normalizedTmdbId];
+  } catch (error) {
+    cache[normalizedTmdbId] = STREAM_PLACEHOLDER_THUMBNAIL;
+    tmdbPosterCache = cache;
+    void saveTmdbPosterCache();
+    return STREAM_PLACEHOLDER_THUMBNAIL;
+  }
+};
+
 const getFirstTextValue = (input, keys = []) => {
   if (!input || typeof input !== 'object') {
     return '';
@@ -844,7 +902,7 @@ const mapVidSrcMovieToStreamItem = (rawMovie = {}, page = 1, index = 0) => {
 
   const thumbnail =
     normalizeHttpsUrl(getFirstTextValue(rawMovie, ['poster', 'poster_url', 'posterUrl', 'image', 'thumbnail'])) ||
-    STREAM_PLACEHOLDER_THUMBNAIL;
+    '';
 
   const mood = getFirstTextValue(rawMovie, ['mood']) || 'Trending';
   const badge = getFirstTextValue(rawMovie, ['badge']) || 'VidSrc';
@@ -871,6 +929,26 @@ const mapVidSrcMovieToStreamItem = (rawMovie = {}, page = 1, index = 0) => {
     imdbId: imdbId || null,
     tmdbId: tmdbId || null,
   };
+};
+
+const enrichMoviesWithThumbnails = async (movies = []) => {
+  if (!Array.isArray(movies) || movies.length === 0) {
+    return [];
+  }
+
+  return Promise.all(
+    movies.map(async (movie) => {
+      if (movie.thumbnail) {
+        return movie;
+      }
+
+      const posterUrl = await resolvePosterUrlForTmdbId(movie.tmdbId);
+      return {
+        ...movie,
+        thumbnail: posterUrl || STREAM_PLACEHOLDER_THUMBNAIL,
+      };
+    }),
+  );
 };
 
 export const fetchLatestVidSrcMovies = async ({ pages = [1], signal } = {}) => {
@@ -906,7 +984,8 @@ export const fetchLatestVidSrcMovies = async ({ pages = [1], signal } = {}) => {
       .map((movie, index) => mapVidSrcMovieToStreamItem(movie, page, index))
       .filter(Boolean);
 
-    aggregatedMovies.push(...pageMovies);
+    const enrichedMovies = await enrichMoviesWithThumbnails(pageMovies);
+    aggregatedMovies.push(...enrichedMovies);
   }
 
   if (aggregatedMovies.length > 0) {
