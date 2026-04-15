@@ -53,7 +53,7 @@ const StreamScreen = ({ navigation }) => {
       setCatalogError('');
 
       try {
-        const latestMovies = await fetchLatestVidSrcMovies({ pages: [1, 2], signal: controller.signal });
+        const latestMovies = await fetchLatestVidSrcMovies({ pages: [1, 2, 3, 4, 5, 6], signal: controller.signal });
 
         if (!isMounted) {
           return;
@@ -175,6 +175,24 @@ const StreamScreen = ({ navigation }) => {
   const featuredItem = filteredCatalog[0] || getFeaturedStream(catalog);
   const sections = useMemo(() => getStreamSections(filteredCatalog), [filteredCatalog]);
 
+  const renderGridCard = ({ item }) => (
+    <TouchableOpacity style={styles.streamCard} onPress={() => openPlayer(item)} activeOpacity={0.88}>
+      <Image
+        source={{ uri: getStreamThumbnail(item.thumbnail) }}
+        style={styles.streamCardImage}
+      />
+      <View style={styles.streamCardBody}>
+        <Text style={styles.streamCardBadge}>{item.badge}</Text>
+        <Text style={styles.streamCardTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+        <Text style={styles.streamCardMeta} numberOfLines={1}>
+          {item.year} • {item.duration} • {item.genre}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   const openPlayer = (item) => {
     if (!item?.embedUrl) {
       return;
@@ -192,24 +210,6 @@ const StreamScreen = ({ navigation }) => {
       badge: item.badge,
     });
   };
-
-  const renderStreamCard = ({ item }) => (
-    <TouchableOpacity style={styles.streamCard} onPress={() => openPlayer(item)} activeOpacity={0.88}>
-      <Image
-        source={{ uri: getStreamThumbnail(item.thumbnail) }}
-        style={styles.streamCardImage}
-      />
-      <View style={styles.streamCardBody}>
-        <Text style={styles.streamCardBadge}>{item.badge}</Text>
-        <Text style={styles.streamCardTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.streamCardMeta}>
-          {item.year} • {item.duration} • {item.genre}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -286,11 +286,12 @@ const StreamScreen = ({ navigation }) => {
           </View>
           <FlatList
             data={watchHistory}
-            renderItem={renderStreamCard}
+            renderItem={renderGridCard}
             keyExtractor={(item, index) => `${getStreamHistoryKey(item)}-${index}`}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
+            scrollEnabled={false}
+            numColumns={2}
+            columnWrapperStyle={styles.gridRow}
+            contentContainerStyle={styles.gridList}
           />
         </View>
       ) : null}
@@ -303,11 +304,12 @@ const StreamScreen = ({ navigation }) => {
             </View>
             <FlatList
               data={section.items}
-              renderItem={renderStreamCard}
+              renderItem={renderGridCard}
               keyExtractor={(item) => `${section.key}-${item.id}`}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
+              scrollEnabled={false}
+              numColumns={2}
+              columnWrapperStyle={styles.gridRow}
+              contentContainerStyle={styles.gridList}
             />
           </View>
         ) : null
@@ -482,12 +484,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
   },
-  horizontalList: {
+  gridList: {
     paddingHorizontal: STREAM_HORIZONTAL_INSET,
+  },
+  gridRow: {
     gap: 12,
+    paddingBottom: 12,
   },
   streamCard: {
-    width: 268,
+    flex: 1,
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: 'rgba(15, 18, 24, 0.96)',
@@ -496,7 +501,7 @@ const styles = StyleSheet.create({
   },
   streamCardImage: {
     width: '100%',
-    height: 148,
+    aspectRatio: 0.72,
   },
   streamCardBody: {
     padding: 14,

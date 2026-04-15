@@ -787,9 +787,14 @@ export const getFeaturedStream = (catalog = STREAM_CATALOG) => catalog[0] || nul
 
 export const getStreamSections = (catalog = STREAM_CATALOG) => [
   {
+    key: 'latest-movies',
+    title: 'Latest Movies',
+    items: catalog.slice(0, 50),
+  },
+  {
     key: 'trending-tonight',
     title: 'Trending Tonight',
-    items: catalog.slice(0, 12),
+    items: catalog.slice(0, 24),
   },
   {
     key: 'thrillers-noir',
