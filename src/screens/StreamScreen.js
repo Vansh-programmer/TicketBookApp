@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -175,12 +176,26 @@ const StreamScreen = ({ navigation }) => {
   const featuredItem = filteredCatalog[0] || getFeaturedStream(catalog);
   const sections = useMemo(() => getStreamSections(filteredCatalog), [filteredCatalog]);
 
+  const openInBrowser = async (item) => {
+    if (!item?.embedUrl) {
+      return;
+    }
+
+    try {
+      await Linking.openURL(item.embedUrl);
+    } catch (error) {
+      console.error('Unable to open stream in browser:', error);
+    }
+  };
+
   const renderGridCard = ({ item }) => (
-    <TouchableOpacity style={styles.streamCard} onPress={() => openPlayer(item)} activeOpacity={0.88}>
-      <Image
-        source={{ uri: getStreamThumbnail(item.thumbnail) }}
-        style={styles.streamCardImage}
-      />
+    <View style={styles.streamCard}>
+      <TouchableOpacity onPress={() => openPlayer(item)} activeOpacity={0.88}>
+        <Image
+          source={{ uri: getStreamThumbnail(item.thumbnail) }}
+          style={styles.streamCardImage}
+        />
+      </TouchableOpacity>
       <View style={styles.streamCardBody}>
         <Text style={styles.streamCardBadge}>{item.badge}</Text>
         <Text style={styles.streamCardTitle} numberOfLines={2}>
@@ -189,8 +204,18 @@ const StreamScreen = ({ navigation }) => {
         <Text style={styles.streamCardMeta} numberOfLines={1}>
           {item.year} • {item.duration} • {item.genre}
         </Text>
+        <View style={styles.cardActionsRow}>
+          <TouchableOpacity style={styles.cardActionPrimary} onPress={() => openPlayer(item)}>
+            <Ionicons name="play" size={14} color="#050505" />
+            <Text style={styles.cardActionPrimaryText}>Play</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.cardActionSecondary} onPress={() => openInBrowser(item)}>
+            <Ionicons name="open-outline" size={14} color="#FFFFFF" />
+            <Text style={styles.cardActionSecondaryText}>Browser</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   const openPlayer = (item) => {
@@ -241,8 +266,14 @@ const StreamScreen = ({ navigation }) => {
               </View>
             </View>
             <View style={styles.playCta}>
-              <Ionicons name="play" size={16} color="#050505" />
-              <Text style={styles.playCtaText}>Play now</Text>
+              <TouchableOpacity style={styles.heroActionPrimary} onPress={() => openPlayer(featuredItem)}>
+                <Ionicons name="play" size={16} color="#050505" />
+                <Text style={styles.playCtaText}>Play</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.heroActionSecondary} onPress={() => openInBrowser(featuredItem)}>
+                <Ionicons name="open-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.heroActionSecondaryText}>Open in browser</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </TouchableOpacity>
@@ -418,15 +449,36 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  heroActionPrimary: {
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  heroActionSecondary: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    gap: 6,
   },
   playCtaText: {
     color: '#050505',
     fontWeight: '800',
-    marginLeft: 6,
+  },
+  heroActionSecondaryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
   },
   searchContainer: {
     marginHorizontal: STREAM_HORIZONTAL_INSET,
@@ -522,6 +574,41 @@ const styles = StyleSheet.create({
   streamCardMeta: {
     color: '#A4A4AA',
     marginTop: 8,
+    fontSize: 12,
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  cardActionPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  cardActionPrimaryText: {
+    color: '#050505',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  cardActionSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  cardActionSecondaryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
     fontSize: 12,
   },
   emptyState: {

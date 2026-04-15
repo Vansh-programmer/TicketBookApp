@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Linking,
   Platform,
   ScrollView,
@@ -17,6 +18,8 @@ import {
   saveToWatchHistory,
 } from '../services/streamCatalog';
 
+const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
+
 const normalizeHttpsUrl = (value) => {
   if (typeof value !== 'string' || !value.trim()) {
     return '';
@@ -28,6 +31,23 @@ const normalizeHttpsUrl = (value) => {
   } catch (error) {
     return '';
   }
+};
+
+const getHostname = (url) => {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch (error) {
+    return '';
+  }
+};
+
+const isSameHost = (url, host) => {
+  const nextHost = getHostname(url);
+  if (!nextHost || !host) {
+    return false;
+  }
+
+  return nextHost === host || nextHost.endsWith(`.${host}`);
 };
 
 const PlayerScreen = () => {
@@ -45,7 +65,7 @@ const PlayerScreen = () => {
     badge,
   } = route.params ?? {};
   const [playerError, setPlayerError] = useState(false);
-  const [externalLaunchAttempted, setExternalLaunchAttempted] = useState(false);
+  const [redirectBlocked, setRedirectBlocked] = useState(false);
   const windowSize = useWindowDimensions();
   const resolvedSubtitle = useMemo(() => {
     const normalizedSubtitle = typeof subtitle === 'string' ? subtitle.trim() : '';
@@ -56,6 +76,7 @@ const PlayerScreen = () => {
   const isFullscreenLandscape = Platform.OS !== 'web' && windowSize.width > windowSize.height;
   const playerHeight = Math.min(windowSize.width * 0.58, 300);
   const embedUrl = useMemo(() => customEmbedUrl, [customEmbedUrl]);
+  const trustedHost = useMemo(() => getHostname(embedUrl), [embedUrl]);
 
   useEffect(() => {
     if (!embedUrl) {
@@ -87,21 +108,9 @@ const PlayerScreen = () => {
   ]);
 
   useEffect(() => {
+    setRedirectBlocked(false);
     setPlayerError(false);
   }, [embedUrl]);
-
-  useEffect(() => {
-    if (Platform.OS === 'web' || !embedUrl || externalLaunchAttempted) {
-      return;
-    }
-
-    setExternalLaunchAttempted(true);
-
-    Linking.openURL(embedUrl).catch((error) => {
-      console.error('Unable to open external stream link automatically:', error);
-      setPlayerError(true);
-    });
-  }, [embedUrl, externalLaunchAttempted]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -137,6 +146,25 @@ const PlayerScreen = () => {
     }
   };
 
+  const handleWebViewNavigation = (request) => {
+    const url = request?.url || '';
+
+    if (!url || url === 'about:blank') {
+      return true;
+    }
+
+    if (url.startsWith('blob:') || url.startsWith('data:')) {
+      return true;
+    }
+
+    if (trustedHost && isSameHost(url, trustedHost)) {
+      return true;
+    }
+
+    setRedirectBlocked(true);
+    return false;
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -164,17 +192,38 @@ const PlayerScreen = () => {
         ]}
       >
         {embedUrl && !playerError ? (
-          <View style={styles.unavailableState}>
-            <Ionicons name="open-outline" size={46} color="#8B8B8B" />
-            <Text style={styles.unavailableTitle}>Opening in browser</Text>
-            <Text style={styles.unavailableText}>
-              This stream is better handled outside the app to avoid redirects and ads inside the player.
-            </Text>
-            <TouchableOpacity style={styles.fallbackButton} onPress={handleOpenExternally}>
-              <Ionicons name="open-outline" size={16} color="#050505" />
-              <Text style={styles.fallbackButtonText}>Open in browser</Text>
-            </TouchableOpacity>
-          </View>
+          Platform.OS === 'web' ? (
+            <iframe
+              src={embedUrl}
+              title={title}
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+              referrerPolicy="no-referrer"
+              style={styles.webIframe}
+            />
+          ) : (
+            <NativeWebView
+              originWhitelist={['*']}
+              source={{ uri: embedUrl }}
+              style={styles.player}
+              allowsFullscreenVideo
+              allowsInlineMediaPlayback
+              mediaPlaybackRequiresUserAction={false}
+              javaScriptEnabled
+              domStorageEnabled
+              setSupportMultipleWindows={false}
+              startInLoadingState
+              renderLoading={() => (
+                <View style={styles.loadingState}>
+                  <ActivityIndicator size="large" color="#FFFFFF" />
+                  <Text style={styles.loadingText}>Opening player...</Text>
+                </View>
+              )}
+              onShouldStartLoadWithRequest={handleWebViewNavigation}
+              onError={() => setPlayerError(true)}
+              onHttpError={() => setPlayerError(true)}
+            />
+          )
         ) : (
           <View style={styles.unavailableState}>
             <Ionicons name="videocam-off-outline" size={46} color="#8B8B8B" />
@@ -195,6 +244,13 @@ const PlayerScreen = () => {
           </View>
         )}
       </View>
+
+      {!isFullscreenLandscape && redirectBlocked ? (
+        <View style={styles.redirectNotice}>
+          <Ionicons name="shield-checkmark-outline" size={16} color="#F9C56E" />
+          <Text style={styles.redirectNoticeText}>Redirect blocked. Use Open in browser if needed.</Text>
+        </View>
+      ) : null}
 
         {!isFullscreenLandscape && embedUrl ? (
           <TouchableOpacity style={styles.externalOpenButton} onPress={handleOpenExternally}>
@@ -297,6 +353,21 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 0,
   },
+  player: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#090909',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#D2D6DC',
+    fontWeight: '600',
+  },
   webIframe: {
     width: '100%',
     height: '100%',
@@ -320,6 +391,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
+  },
+  redirectNotice: {
+    marginTop: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 197, 110, 0.35)',
+    backgroundColor: 'rgba(249, 197, 110, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  redirectNoticeText: {
+    color: '#E5C78A',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 17,
   },
   fallbackButton: {
     marginTop: 14,
