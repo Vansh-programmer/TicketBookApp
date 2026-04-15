@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WATCH_HISTORY_STORAGE_KEY = '@ticketbookapp/watch-history-v1';
+const VID_SRC_CATALOG_CACHE_KEY = '@ticketbookapp/vidsrc-catalog-v1';
 const MAX_WATCH_HISTORY = 6;
 
 export const STREAM_CATALOG = [
@@ -594,10 +595,137 @@ export const STREAM_FILTERS = [
   'Family',
 ];
 
-export const getStreamThumbnail = (videoId) =>
-  `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+const VID_SRC_DEFAULT_EMBED_HOST = 'vidsrc-embed.ru';
+const VID_SRC_EMBED_HOSTS = [
+  'vidsrc-embed.ru',
+  'vsembed.ru',
+  'vidsrc-embed.su',
+  'vidsrcme.su',
+  'vsrc.su',
+];
 
-export const getFeaturedStream = (catalog = STREAM_CATALOG) => catalog[0] || STREAM_CATALOG[0];
+const STREAM_PLACEHOLDER_THUMBNAIL =
+  'https://dummyimage.com/1280x720/0b1220/ffffff.png&text=TicketBook+Stream';
+
+const getFirstTextValue = (input, keys = []) => {
+  if (!input || typeof input !== 'object') {
+    return '';
+  }
+
+  for (const key of keys) {
+    const value = input[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+
+  return '';
+};
+
+const getFirstNumberValue = (input, keys = []) => {
+  if (!input || typeof input !== 'object') {
+    return null;
+  }
+
+  for (const key of keys) {
+    const rawValue = input[key];
+    const value = Number(rawValue);
+    if (Number.isFinite(value) && value > 0) {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+const normalizeHttpsUrl = (value) => {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === 'https:' ? parsed.toString() : '';
+  } catch (error) {
+    return '';
+  }
+};
+
+const normalizeVidSrcIdentifier = (value) => {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return '';
+  }
+
+  return String(value).trim();
+};
+
+const extractListPayload = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+
+  const candidateKeys = ['result', 'results', 'items', 'data', 'movies', 'list'];
+  for (const key of candidateKeys) {
+    if (Array.isArray(payload[key])) {
+      return payload[key];
+    }
+  }
+
+  return [];
+};
+
+const parseJsonSafely = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch (error) {
+    return null;
+  }
+};
+
+const fetchVidSrcPagePayload = async ({ host, page, signal }) => {
+  const response = await fetch(`https://${host}/movies/latest/page-${page}.json`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json, text/plain, */*',
+      'Cache-Control': 'no-cache',
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Host ${host} responded with ${response.status}.`);
+  }
+
+  const rawText = await response.text();
+  const payload = parseJsonSafely(rawText);
+  if (!payload) {
+    throw new Error(`Host ${host} returned non-JSON payload.`);
+  }
+
+  return payload;
+};
+
+export const getStreamThumbnail = (thumbnailUrl) =>
+  normalizeHttpsUrl(thumbnailUrl) || STREAM_PLACEHOLDER_THUMBNAIL;
+
+export const getFeaturedStream = (catalog = STREAM_CATALOG) => catalog[0] || null;
 
 export const getStreamSections = (catalog = STREAM_CATALOG) => [
   {
@@ -637,6 +765,190 @@ export const getYouTubeEmbedUrl = (videoId) =>
 
 export const getYouTubeWatchUrl = (videoId) =>
   `https://www.youtube.com/watch?v=${videoId}`;
+
+export const getVidSrcMovieEmbedUrl = ({ imdbId, tmdbId, autoplay = 1 } = {}) => {
+  const normalizedImdbId = normalizeVidSrcIdentifier(imdbId);
+  const normalizedTmdbId = normalizeVidSrcIdentifier(tmdbId);
+
+  if (!normalizedImdbId && !normalizedTmdbId) {
+    return '';
+  }
+
+  const params = new URLSearchParams();
+  if (normalizedImdbId) {
+    params.set('imdb', normalizedImdbId);
+  } else {
+    params.set('tmdb', normalizedTmdbId);
+  }
+
+  params.set('autoplay', autoplay ? '1' : '0');
+
+  return `https://${VID_SRC_DEFAULT_EMBED_HOST}/embed/movie?${params.toString()}`;
+};
+
+export const isVidSrcEmbedUrl = (value) => {
+  const normalized = normalizeHttpsUrl(value);
+  if (!normalized) {
+    return false;
+  }
+
+  try {
+    const host = new URL(normalized).hostname.toLowerCase();
+    return VID_SRC_EMBED_HOSTS.some(
+      (allowedHost) => host === allowedHost || host.endsWith(`.${allowedHost}`),
+    );
+  } catch (error) {
+    return false;
+  }
+};
+
+const mapVidSrcMovieToStreamItem = (rawMovie = {}, page = 1, index = 0) => {
+  const imdbId = normalizeVidSrcIdentifier(
+    getFirstTextValue(rawMovie, ['imdb', 'imdb_id', 'imdbId', 'imdbID']),
+  );
+  const tmdbIdRaw =
+    getFirstTextValue(rawMovie, ['tmdb', 'tmdb_id', 'tmdbId']) ||
+    getFirstNumberValue(rawMovie, ['tmdb', 'tmdb_id', 'tmdbId']);
+  const tmdbId = normalizeVidSrcIdentifier(tmdbIdRaw);
+  const directEmbedUrl =
+    normalizeHttpsUrl(getFirstTextValue(rawMovie, ['embed_url_tmdb', 'embed_url', 'embedUrl'])) || '';
+  const embedUrl = directEmbedUrl || getVidSrcMovieEmbedUrl({ imdbId, tmdbId, autoplay: 1 });
+
+  if (!embedUrl) {
+    return null;
+  }
+
+  const title =
+    getFirstTextValue(rawMovie, ['title', 'name', 'movie_title']) ||
+    `Movie ${page}-${index + 1}`;
+  const description =
+    getFirstTextValue(rawMovie, ['overview', 'description', 'plot', 'summary']) ||
+    'Stream now in the embedded player.';
+  const genre =
+    getFirstTextValue(rawMovie, ['genre', 'genres']) ||
+    'Movie';
+  const language =
+    getFirstTextValue(rawMovie, ['language', 'original_language', 'lang']) ||
+    'English';
+  const yearValue =
+    getFirstNumberValue(rawMovie, ['year']) ||
+    Number(getFirstTextValue(rawMovie, ['release_year'])) ||
+    null;
+  const releaseDate = getFirstTextValue(rawMovie, ['release_date', 'releaseDate']);
+  const yearFromRelease = releaseDate ? Number(releaseDate.slice(0, 4)) : null;
+  const year = Number.isFinite(yearValue) && yearValue > 0
+    ? yearValue
+    : Number.isFinite(yearFromRelease) && yearFromRelease > 0
+    ? yearFromRelease
+    : new Date().getFullYear();
+
+  const thumbnail =
+    normalizeHttpsUrl(getFirstTextValue(rawMovie, ['poster', 'poster_url', 'posterUrl', 'image', 'thumbnail'])) ||
+    STREAM_PLACEHOLDER_THUMBNAIL;
+
+  const mood = getFirstTextValue(rawMovie, ['mood']) || 'Trending';
+  const badge = getFirstTextValue(rawMovie, ['badge']) || 'VidSrc';
+  const quality = getFirstTextValue(rawMovie, ['quality']);
+
+  return {
+    id: `vidsrc-${tmdbId || imdbId || `${page}-${index}`}`,
+    historyKey: `vidsrc-${tmdbId || imdbId || `${page}-${index}`}`,
+    title,
+    description,
+    year,
+    duration: 'Feature',
+    genre,
+    language,
+    region: 'Global',
+    format: 'Movie',
+    mood,
+    badge,
+    quality,
+    thumbnail,
+    embedUrl,
+    playbackType: 'embed',
+    source: 'vidsrc',
+    imdbId: imdbId || null,
+    tmdbId: tmdbId || null,
+  };
+};
+
+export const fetchLatestVidSrcMovies = async ({ pages = [1], signal } = {}) => {
+  const normalizedPages = Array.isArray(pages)
+    ? [...new Set(pages.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0))]
+    : [1];
+
+  if (normalizedPages.length === 0) {
+    return [];
+  }
+
+  const aggregatedMovies = [];
+  const fetchErrors = [];
+
+  for (const page of normalizedPages) {
+    let pagePayload = null;
+
+    for (const host of VID_SRC_EMBED_HOSTS) {
+      try {
+        pagePayload = await fetchVidSrcPagePayload({ host, page, signal });
+        break;
+      } catch (error) {
+        fetchErrors.push(error);
+      }
+    }
+
+    if (!pagePayload) {
+      continue;
+    }
+
+    const list = extractListPayload(pagePayload);
+    const pageMovies = list
+      .map((movie, index) => mapVidSrcMovieToStreamItem(movie, page, index))
+      .filter(Boolean);
+
+    aggregatedMovies.push(...pageMovies);
+  }
+
+  if (aggregatedMovies.length > 0) {
+    return aggregatedMovies;
+  }
+
+  if (fetchErrors.length > 0) {
+    throw fetchErrors[fetchErrors.length - 1];
+  }
+
+  return [];
+};
+
+export const loadVidSrcCatalogCache = async () => {
+  try {
+    const rawCache = await AsyncStorage.getItem(VID_SRC_CATALOG_CACHE_KEY);
+    if (!rawCache) {
+      return [];
+    }
+
+    const parsed = JSON.parse(rawCache);
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => item && typeof item === 'object' && typeof item.embedUrl === 'string')
+      : [];
+  } catch (error) {
+    console.error('Unable to load VidSrc catalog cache:', error);
+    return [];
+  }
+};
+
+export const saveVidSrcCatalogCache = async (items = []) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return;
+  }
+
+  try {
+    const cappedItems = items.slice(0, 120);
+    await AsyncStorage.setItem(VID_SRC_CATALOG_CACHE_KEY, JSON.stringify(cappedItems));
+  } catch (error) {
+    console.error('Unable to save VidSrc catalog cache:', error);
+  }
+};
 
 export const getStreamHistoryKey = (item = {}) => {
   const explicitKey = typeof item.historyKey === 'string' ? item.historyKey.trim() : '';
@@ -713,7 +1025,7 @@ export const saveToWatchHistory = async (item) => {
         ...item,
         historyKey,
         watchedAt: Date.now(),
-        thumbnail: item.thumbnail || (item.videoId ? getStreamThumbnail(item.videoId) : ''),
+        thumbnail: getStreamThumbnail(item.thumbnail),
       },
       ...currentHistory.filter((entry) => getStreamHistoryKey(entry) !== historyKey),
     ].slice(0, MAX_WATCH_HISTORY);

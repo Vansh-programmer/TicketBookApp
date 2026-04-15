@@ -13,13 +13,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-  STREAM_CATALOG,
   STREAM_FILTERS,
+  fetchLatestVidSrcMovies,
   getFeaturedStream,
   getStreamHistoryKey,
   getStreamSections,
   getStreamThumbnail,
+  loadVidSrcCatalogCache,
   loadWatchHistory,
+  saveVidSrcCatalogCache,
 } from '../services/streamCatalog';
 import {
   mergeStreamCatalog,
@@ -29,19 +31,83 @@ import {
 const STREAM_HORIZONTAL_INSET = 14;
 
 const StreamScreen = ({ navigation }) => {
-  const [catalog, setCatalog] = useState(STREAM_CATALOG);
+  const [baseCatalog, setBaseCatalog] = useState([]);
+  const [adminEntries, setAdminEntries] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
   const [watchHistory, setWatchHistory] = useState([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState('');
+
+  const catalog = useMemo(
+    () => mergeStreamCatalog(baseCatalog, adminEntries),
+    [adminEntries, baseCatalog],
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    const loadVidSrcCatalog = async () => {
+      setLoadingCatalog(true);
+      setCatalogError('');
+
+      try {
+        const latestMovies = await fetchLatestVidSrcMovies({ pages: [1, 2], signal: controller.signal });
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (latestMovies.length > 0) {
+          setBaseCatalog(latestMovies);
+          void saveVidSrcCatalogCache(latestMovies);
+        } else {
+          const cachedMovies = await loadVidSrcCatalogCache();
+          setBaseCatalog(cachedMovies);
+          setCatalogError(
+            cachedMovies.length > 0
+              ? 'Live stream list is unavailable. Showing cached movies.'
+              : 'No movies are available right now.',
+          );
+        }
+      } catch (error) {
+        if (!isMounted || error?.name === 'AbortError') {
+          return;
+        }
+
+        console.error('Unable to load VidSrc stream catalog:', error);
+
+        const cachedMovies = await loadVidSrcCatalogCache();
+        setBaseCatalog(cachedMovies);
+        setCatalogError(
+          cachedMovies.length > 0
+            ? 'Stream source is blocked on this network. Showing cached movies.'
+            : 'Unable to load streams on this network right now. Try mobile data or another Wi-Fi.',
+        );
+      } finally {
+        if (isMounted) {
+          setLoadingCatalog(false);
+        }
+      }
+    };
+
+    void loadVidSrcCatalog();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeToAdminStreamEntries(
       (entries) => {
-        setCatalog(mergeStreamCatalog(STREAM_CATALOG, entries));
+        setAdminEntries(entries);
       },
       (error) => {
         console.error('Unable to sync admin stream entries:', error);
-        setCatalog(STREAM_CATALOG);
+        setAdminEntries([]);
       },
     );
 
@@ -55,7 +121,9 @@ const StreamScreen = ({ navigation }) => {
       const syncWatchHistory = async () => {
         const history = await loadWatchHistory();
         if (isMounted) {
-          setWatchHistory(history);
+          setWatchHistory(
+            history.filter((item) => typeof item?.embedUrl === 'string' && item.embedUrl.trim()),
+          );
         }
       };
 
@@ -95,13 +163,16 @@ const StreamScreen = ({ navigation }) => {
   const sections = useMemo(() => getStreamSections(filteredCatalog), [filteredCatalog]);
 
   const openPlayer = (item) => {
+    if (!item?.embedUrl) {
+      return;
+    }
+
     navigation.getParent()?.navigate('Player', {
       streamId: item.id,
       historyKey: getStreamHistoryKey(item),
       embedUrl: item.embedUrl || '',
-      playbackType: item.playbackType || (item.embedUrl ? 'embed' : 'youtube'),
+      playbackType: item.playbackType || 'embed',
       thumbnail: item.thumbnail || '',
-      videoId: item.videoId,
       title: item.title,
       description: item.description,
       subtitle: `${item.year} • ${item.duration} • ${item.genre}`,
@@ -112,7 +183,7 @@ const StreamScreen = ({ navigation }) => {
   const renderStreamCard = ({ item }) => (
     <TouchableOpacity style={styles.streamCard} onPress={() => openPlayer(item)} activeOpacity={0.88}>
       <Image
-        source={{ uri: item.thumbnail || getStreamThumbnail(item.videoId) }}
+        source={{ uri: getStreamThumbnail(item.thumbnail) }}
         style={styles.streamCardImage}
       />
       <View style={styles.streamCardBody}>
@@ -133,34 +204,39 @@ const StreamScreen = ({ navigation }) => {
         <Text style={styles.heading}>Stream</Text>
       </View>
 
-      <TouchableOpacity style={styles.featuredCard} activeOpacity={0.9} onPress={() => openPlayer(featuredItem)}>
-        <Image
-          source={{ uri: featuredItem.thumbnail || getStreamThumbnail(featuredItem.videoId) }}
-          style={styles.featuredImage}
-        />
-        <View style={styles.featuredOverlay}>
-          <Text style={styles.featuredBadge}>{featuredItem.badge}</Text>
-          <Text style={styles.featuredTitle}>{featuredItem.title}</Text>
-          <View style={styles.featuredMetaRow}>
-            <View style={styles.featuredMetaChip}>
-              <Ionicons name="calendar-outline" size={12} color="#FFFFFF" />
-              <Text style={styles.featuredMetaChipText}>{featuredItem.year}</Text>
+      {featuredItem ? (
+        <TouchableOpacity style={styles.featuredCard} activeOpacity={0.9} onPress={() => openPlayer(featuredItem)}>
+          <Image
+            source={{ uri: getStreamThumbnail(featuredItem.thumbnail) }}
+            style={styles.featuredImage}
+          />
+          <View style={styles.featuredOverlay}>
+            <Text style={styles.featuredBadge}>{featuredItem.badge}</Text>
+            <Text style={styles.featuredTitle}>{featuredItem.title}</Text>
+            <View style={styles.featuredMetaRow}>
+              <View style={styles.featuredMetaChip}>
+                <Ionicons name="calendar-outline" size={12} color="#FFFFFF" />
+                <Text style={styles.featuredMetaChipText}>{featuredItem.year}</Text>
+              </View>
+              <View style={styles.featuredMetaChip}>
+                <Ionicons name="time-outline" size={12} color="#FFFFFF" />
+                <Text style={styles.featuredMetaChipText}>{featuredItem.duration}</Text>
+              </View>
+              <View style={styles.featuredMetaChip}>
+                <Ionicons name="albums-outline" size={12} color="#FFFFFF" />
+                <Text style={styles.featuredMetaChipText}>{featuredItem.genre}</Text>
+              </View>
             </View>
-            <View style={styles.featuredMetaChip}>
-              <Ionicons name="time-outline" size={12} color="#FFFFFF" />
-              <Text style={styles.featuredMetaChipText}>{featuredItem.duration}</Text>
-            </View>
-            <View style={styles.featuredMetaChip}>
-              <Ionicons name="albums-outline" size={12} color="#FFFFFF" />
-              <Text style={styles.featuredMetaChipText}>{featuredItem.genre}</Text>
+            <View style={styles.playCta}>
+              <Ionicons name="play" size={16} color="#050505" />
+              <Text style={styles.playCtaText}>Play now</Text>
             </View>
           </View>
-          <View style={styles.playCta}>
-            <Ionicons name="play" size={16} color="#050505" />
-            <Text style={styles.playCtaText}>Play now</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      ) : null}
+
+      {catalogError ? <Text style={styles.catalogErrorText}>{catalogError}</Text> : null}
+      {loadingCatalog ? <Text style={styles.catalogLoadingText}>Loading latest streams...</Text> : null}
 
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={18} color="#A0A0A0" />
@@ -227,7 +303,9 @@ const StreamScreen = ({ navigation }) => {
       {!filteredCatalog.length ? (
         <View style={styles.emptyState}>
           <Ionicons name="search-outline" size={42} color="#7A7A7A" />
-          <Text style={styles.emptyTitle}>Nothing matched that search</Text>
+          <Text style={styles.emptyTitle}>
+            {searchQuery.trim() ? 'Nothing matched that search' : 'No streams available right now'}
+          </Text>
         </View>
       ) : null}
     </ScrollView>
@@ -443,6 +521,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginTop: 12,
+  },
+  catalogErrorText: {
+    marginHorizontal: STREAM_HORIZONTAL_INSET,
+    marginBottom: 10,
+    color: '#FF8A8A',
+    fontSize: 13,
+  },
+  catalogLoadingText: {
+    marginHorizontal: STREAM_HORIZONTAL_INSET,
+    marginBottom: 10,
+    color: '#A9B3C8',
+    fontSize: 13,
   },
 });
 

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Linking,
   Platform,
   ScrollView,
@@ -14,14 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import {
-  extractYouTubeVideoId,
   getStreamHistoryKey,
-  getYouTubeEmbedUrl,
-  getYouTubeWatchUrl,
   saveToWatchHistory,
 } from '../services/streamCatalog';
-
-const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
 
 const normalizeHttpsUrl = (value) => {
   if (typeof value !== 'string' || !value.trim()) {
@@ -36,23 +30,6 @@ const normalizeHttpsUrl = (value) => {
   }
 };
 
-const getHostname = (url) => {
-  try {
-    return new URL(url).hostname.toLowerCase();
-  } catch (error) {
-    return '';
-  }
-};
-
-const isAllowedHost = (url, trustedHost) => {
-  const requestedHost = getHostname(url);
-  if (!requestedHost || !trustedHost) {
-    return false;
-  }
-
-  return requestedHost === trustedHost || requestedHost.endsWith(`.${trustedHost}`);
-};
-
 const PlayerScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -62,44 +39,39 @@ const PlayerScreen = () => {
     embedUrl: rawEmbedUrl,
     playbackType,
     thumbnail,
-    videoId: rawVideoId,
     title = 'Now Playing',
     description = '',
     subtitle,
     badge,
   } = route.params ?? {};
   const [playerError, setPlayerError] = useState(false);
-  const [redirectBlocked, setRedirectBlocked] = useState(false);
+  const [externalLaunchAttempted, setExternalLaunchAttempted] = useState(false);
   const windowSize = useWindowDimensions();
+  const resolvedSubtitle = useMemo(() => {
+    const normalizedSubtitle = typeof subtitle === 'string' ? subtitle.trim() : '';
+    return normalizedSubtitle && !normalizedSubtitle.includes('undefined') ? normalizedSubtitle : '';
+  }, [subtitle]);
 
   const customEmbedUrl = useMemo(() => normalizeHttpsUrl(rawEmbedUrl), [rawEmbedUrl]);
-  const videoId = useMemo(() => extractYouTubeVideoId(rawVideoId), [rawVideoId]);
   const isFullscreenLandscape = Platform.OS !== 'web' && windowSize.width > windowSize.height;
   const playerHeight = Math.min(windowSize.width * 0.58, 300);
-  const embedUrl = useMemo(
-    () => customEmbedUrl || (videoId ? getYouTubeEmbedUrl(videoId) : ''),
-    [customEmbedUrl, videoId],
-  );
-  const trustedHost = useMemo(() => getHostname(embedUrl), [embedUrl]);
-  const usesCustomEmbed = Boolean(customEmbedUrl || (playbackType && playbackType !== 'youtube'));
-  const watchUrl = useMemo(() => (videoId ? getYouTubeWatchUrl(videoId) : ''), [videoId]);
+  const embedUrl = useMemo(() => customEmbedUrl, [customEmbedUrl]);
 
   useEffect(() => {
-    if (!embedUrl && !videoId) {
+    if (!embedUrl) {
       return;
     }
 
     saveToWatchHistory({
       id: streamId,
-      historyKey: historyKey || getStreamHistoryKey({ id: streamId, videoId, embedUrl, title }),
+      historyKey: historyKey || getStreamHistoryKey({ id: streamId, embedUrl, title }),
       title,
       description,
-      subtitle,
+      subtitle: resolvedSubtitle,
       badge,
       embedUrl: customEmbedUrl,
-      playbackType: usesCustomEmbed ? 'embed' : 'youtube',
+      playbackType: 'embed',
       thumbnail,
-      videoId,
     });
   }, [
     badge,
@@ -111,14 +83,25 @@ const PlayerScreen = () => {
     subtitle,
     thumbnail,
     title,
-    usesCustomEmbed,
-    videoId,
+    resolvedSubtitle,
   ]);
 
   useEffect(() => {
-    setRedirectBlocked(false);
     setPlayerError(false);
   }, [embedUrl]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || !embedUrl || externalLaunchAttempted) {
+      return;
+    }
+
+    setExternalLaunchAttempted(true);
+
+    Linking.openURL(embedUrl).catch((error) => {
+      console.error('Unable to open external stream link automatically:', error);
+      setPlayerError(true);
+    });
+  }, [embedUrl, externalLaunchAttempted]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -142,44 +125,15 @@ const PlayerScreen = () => {
     };
   }, []);
 
-  const handleWebViewNavigation = (request) => {
-    const url = request?.url || '';
-
-    if (!url || url === 'about:blank') {
-      return true;
-    }
-
-    if (url.startsWith('blob:') || url.startsWith('data:')) {
-      return true;
-    }
-
-    if (usesCustomEmbed && trustedHost) {
-      const allowed = isAllowedHost(url, trustedHost);
-      if (!allowed) {
-        setRedirectBlocked(true);
-      }
-      return allowed;
-    }
-
-    if (
-      url.startsWith('https://www.youtube-nocookie.com/embed/') ||
-      url.startsWith('https://www.youtube.com/embed/')
-    ) {
-      return true;
-    }
-
-    return false;
-  };
-
-  const handleOpenInYouTube = async () => {
-    if (!watchUrl) {
+  const handleOpenExternally = async () => {
+    if (!embedUrl) {
       return;
     }
 
     try {
-      await Linking.openURL(watchUrl);
+      await Linking.openURL(embedUrl);
     } catch (error) {
-      console.error('Unable to open YouTube link:', error);
+      console.error('Unable to open external stream link:', error);
     }
   };
 
@@ -210,39 +164,17 @@ const PlayerScreen = () => {
         ]}
       >
         {embedUrl && !playerError ? (
-          Platform.OS === 'web' ? (
-            <iframe
-              src={embedUrl}
-              title={title}
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-              referrerPolicy="no-referrer"
-              style={styles.webIframe}
-            />
-          ) : (
-            <NativeWebView
-              originWhitelist={['*']}
-              source={{ uri: embedUrl }}
-              style={styles.player}
-              allowsFullscreenVideo
-              allowsInlineMediaPlayback
-              mediaPlaybackRequiresUserAction={false}
-              javaScriptEnabled
-              domStorageEnabled
-              incognito
-              setSupportMultipleWindows={false}
-              startInLoadingState
-              renderLoading={() => (
-                <View style={styles.loadingState}>
-                  <ActivityIndicator size="large" color="#FFFFFF" />
-                  <Text style={styles.loadingText}>Opening player…</Text>
-                </View>
-              )}
-              onShouldStartLoadWithRequest={handleWebViewNavigation}
-              onError={() => setPlayerError(true)}
-              onHttpError={() => setPlayerError(true)}
-            />
-          )
+          <View style={styles.unavailableState}>
+            <Ionicons name="open-outline" size={46} color="#8B8B8B" />
+            <Text style={styles.unavailableTitle}>Opening in browser</Text>
+            <Text style={styles.unavailableText}>
+              This stream is better handled outside the app to avoid redirects and ads inside the player.
+            </Text>
+            <TouchableOpacity style={styles.fallbackButton} onPress={handleOpenExternally}>
+              <Ionicons name="open-outline" size={16} color="#050505" />
+              <Text style={styles.fallbackButtonText}>Open in browser</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={styles.unavailableState}>
             <Ionicons name="videocam-off-outline" size={46} color="#8B8B8B" />
@@ -251,40 +183,31 @@ const PlayerScreen = () => {
             </Text>
             <Text style={styles.unavailableText}>
               {embedUrl
-                ? 'This movie could not be loaded inside the app right now.'
+                ? 'This movie should open externally in your browser.'
                 : 'This item does not have a valid embed source yet.'}
             </Text>
-            {watchUrl && !usesCustomEmbed ? (
-              <TouchableOpacity style={styles.fallbackButton} onPress={handleOpenInYouTube}>
-                <Ionicons name="logo-youtube" size={16} color="#050505" />
-                <Text style={styles.fallbackButtonText}>Open in YouTube</Text>
+            {embedUrl ? (
+              <TouchableOpacity style={styles.fallbackButton} onPress={handleOpenExternally}>
+                <Ionicons name="open-outline" size={16} color="#050505" />
+                <Text style={styles.fallbackButtonText}>Open in browser</Text>
               </TouchableOpacity>
             ) : null}
           </View>
         )}
       </View>
 
-      {!isFullscreenLandscape && redirectBlocked ? (
-        <View style={styles.redirectNotice}>
-          <Ionicons name="shield-checkmark-outline" size={16} color="#F9C56E" />
-          <Text style={styles.redirectNoticeText}>
-            Redirect blocked for safety. Only the original streaming domain is allowed.
-          </Text>
-        </View>
-      ) : null}
-
-      {!isFullscreenLandscape && watchUrl && !usesCustomEmbed ? (
-        <TouchableOpacity style={styles.externalOpenButton} onPress={handleOpenInYouTube}>
-          <Ionicons name="logo-youtube" size={18} color="#FFFFFF" />
-          <Text style={styles.externalOpenButtonText}>Playback fallback: Open in YouTube</Text>
-        </TouchableOpacity>
-      ) : null}
+        {!isFullscreenLandscape && embedUrl ? (
+          <TouchableOpacity style={styles.externalOpenButton} onPress={handleOpenExternally}>
+            <Ionicons name="open-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.externalOpenButtonText}>Open in browser</Text>
+          </TouchableOpacity>
+        ) : null}
 
       {!isFullscreenLandscape ? (
         <View style={styles.metaCard}>
           {badge ? <Text style={styles.badge}>{badge}</Text> : null}
           <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {resolvedSubtitle ? <Text style={styles.subtitle}>{resolvedSubtitle}</Text> : null}
           {description ? <Text style={styles.description}>{description}</Text> : null}
         </View>
       ) : null}
@@ -374,21 +297,6 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 0,
   },
-  player: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  loadingState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#090909',
-  },
-  loadingText: {
-    marginTop: 12,
-    color: '#D2D6DC',
-    fontWeight: '600',
-  },
   webIframe: {
     width: '100%',
     height: '100%',
@@ -412,24 +320,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
-  },
-  redirectNotice: {
-    marginTop: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(249, 197, 110, 0.4)',
-    backgroundColor: 'rgba(249, 197, 110, 0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  redirectNoticeText: {
-    flex: 1,
-    color: '#F2DEB0',
-    fontSize: 12,
-    lineHeight: 18,
   },
   fallbackButton: {
     marginTop: 14,

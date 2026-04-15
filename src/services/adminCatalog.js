@@ -12,7 +12,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { getStreamThumbnail, getYouTubeEmbedUrl } from './streamCatalog';
+import { getStreamThumbnail } from './streamCatalog';
 
 const USERS_COLLECTION = 'users';
 const ADMIN_STREAM_COLLECTION = 'adminStreamCatalog';
@@ -266,20 +266,15 @@ export const deleteAdminTheater = async (id) => {
 
 export const mergeStreamCatalog = (defaultCatalog, adminEntries = []) => {
   const normalizedAdminEntries = adminEntries
-    .filter((entry) => entry?.title && (entry?.embedUrl || entry?.videoId))
+    .filter((entry) => entry?.title && entry?.embedUrl)
     .map((entry) => ({
       ...(() => {
-        const fallbackVideoId = normalizeText(entry.videoId);
-        const fallbackEmbedUrl = fallbackVideoId ? getYouTubeEmbedUrl(fallbackVideoId) : '';
-        const embedUrl = normalizeHttpsUrl(entry.embedUrl) || fallbackEmbedUrl;
-        const thumbnail =
-          normalizeThumbnailValue(entry.thumbnail || entry.thumbnailUrl) ||
-          (fallbackVideoId ? getStreamThumbnail(fallbackVideoId) : '');
+        const embedUrl = normalizeHttpsUrl(entry.embedUrl);
+        const thumbnail = getStreamThumbnail(normalizeThumbnailValue(entry.thumbnail || entry.thumbnailUrl));
 
         return {
           embedUrl,
           thumbnail,
-          videoId: fallbackVideoId,
         };
       })(),
       id: `admin-stream-${entry.id}`,

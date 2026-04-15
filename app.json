@@ -10,7 +10,10 @@
     },
     "ios": {
       "icon": "./assets/branding/app-icon-opaque.png",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "TicketBookApp uses your microphone so you can record voice notes in community posts."
+      }
     },
     "extra": {
       "eas": {
@@ -23,6 +26,9 @@
     ],
     "android": {
       "package": "com.vanshpoonia.ticketbookapp",
+      "permissions": [
+        "RECORD_AUDIO"
+      ],
       "icon": "./assets/branding/app-icon-opaque.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/branding/adaptive-icon.png",

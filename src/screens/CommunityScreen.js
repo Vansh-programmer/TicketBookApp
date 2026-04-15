@@ -247,6 +247,26 @@ const blobToDataUrl = (blob) =>
     reader.readAsDataURL(blob);
   });
 
+const loadBlobFromUri = async (uri) => {
+  try {
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`Failed to load recording (${response.status})`);
+    }
+
+    return await response.blob();
+  } catch (fetchError) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = () => resolve(xhr.response);
+      xhr.onerror = () => reject(fetchError || new Error('Unable to load recording from device storage.'));
+      xhr.responseType = 'blob';
+      xhr.open('GET', uri, true);
+      xhr.send(null);
+    });
+  }
+};
+
 const getDisplayValue = (value, fallback = '') => {
   if (typeof value === 'string') {
     const trimmedValue = value.trim();
@@ -554,8 +574,13 @@ const CommunityScreen = () => {
       return null;
     }
 
-    const response = await fetch(voiceNote.uri);
-    const blob = await response.blob();
+    let blob;
+
+    try {
+      blob = await loadBlobFromUri(voiceNote.uri);
+    } catch (error) {
+      throw new Error('Unable to read this recording on your device. Record again and try posting once more.');
+    }
 
     if (Platform.OS === 'web') {
       if (blob.size > MAX_INLINE_WEB_AUDIO_BYTES) {
@@ -575,6 +600,10 @@ const CommunityScreen = () => {
     await uploadBytes(fileRef, blob, {
       contentType: blob.type || 'audio/m4a',
     });
+
+    if (typeof blob.close === 'function') {
+      blob.close();
+    }
 
     return getDownloadURL(fileRef);
   };
@@ -598,7 +627,7 @@ const CommunityScreen = () => {
       });
 
       await voiceRecorder.prepareToRecordAsync();
-      voiceRecorder.record();
+      await voiceRecorder.record();
 
       voiceCaptureStartedAtRef.current = Date.now();
       setIsRecordingVoice(true);
@@ -664,6 +693,15 @@ const CommunityScreen = () => {
     setFeedError('');
   };
 
+  const toggleVoiceCapture = () => {
+    if (isRecordingVoice || voiceRecorderState.isRecording) {
+      void stopVoiceCapture();
+      return;
+    }
+
+    void startVoiceCapture();
+  };
+
   const removeVoiceAttachment = () => {
     setRecordedVoiceNote(null);
     setVoiceError('');
@@ -700,6 +738,10 @@ const CommunityScreen = () => {
   };
 
   const submitPost = async () => {
+    if (isRecordingVoice || voiceRecorderState.isRecording) {
+      await stopVoiceCapture();
+    }
+
     const trimmedText = postText.trim();
     const trimmedMediaInput = postMediaInput.trim();
     const hasSelectedImage = Boolean(selectedImage?.dataUri);
@@ -1272,8 +1314,8 @@ const CommunityScreen = () => {
                 <View style={styles.voiceCaptureRow}>
                   <AnimatedPressable
                     style={styles.voiceCaptureWrap}
-                    onPressIn={startVoiceCapture}
-                    onPressOut={stopVoiceCapture}
+                    onPress={toggleVoiceCapture}
+                    disabled={submittingPost}
                   >
                     <GlassSurface
                       style={[
@@ -1290,7 +1332,7 @@ const CommunityScreen = () => {
                         <Text style={styles.secondaryButtonText}>
                           {(isRecordingVoice || voiceRecorderState.isRecording)
                             ? `Recording ${recordingDurationLabel}`
-                            : 'Hold to talk'}
+                            : 'Tap to record'}
                         </Text>
                       </View>
                     </GlassSurface>
@@ -1343,6 +1385,8 @@ const CommunityScreen = () => {
                     label={submittingPost ? 'Posting...' : 'Post'}
                     disabled={
                       (!postText.trim() && !selectedImage?.dataUri && !postMediaInput.trim() && !recordedVoiceNote?.uri) ||
+                      isRecordingVoice ||
+                      voiceRecorderState.isRecording ||
                       submittingPost
                     }
                   />
