@@ -151,13 +151,13 @@ const LoginScreen = () => {
 
     try {
       await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-      playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS);
+      playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS, { volume: 0.78, releaseAfterMs: 2200 });
       showToast('Welcome back!', { type: 'success' });
       navigation.replace('Home');
     } catch (error) {
       const message = getFirebaseAuthErrorMessage(error);
       setAuthError(message);
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR, { volume: 0.62, releaseAfterMs: 2000 });
       showToast(message, { type: 'error' });
     } finally {
       setIsLoading(false);
@@ -278,7 +278,7 @@ const LoginScreen = () => {
               />
               <TouchableOpacity
                 onPress={() => {
-                  playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                  playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
                   setShowPassword((current) => !current);
                 }}
                 style={styles.passwordToggleIcon}
@@ -320,7 +320,7 @@ const LoginScreen = () => {
             <TouchableOpacity
               style={styles.signupButton}
               onPress={() => {
-                playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.34 });
                 navigation.navigate('Signup');
               }}
               disabled={isLoading}

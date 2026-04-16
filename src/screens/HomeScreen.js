@@ -181,7 +181,9 @@ const HomeScreen = () => {
     try {
       const nextLikedState = await toggleMovieLikeState(movie.id);
       const movieTitle = movie.title || movie.name || 'Movie';
-      playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+      playSoundEffect(nextLikedState ? SOUND_EFFECT_KEYS.SUCCESS : SOUND_EFFECT_KEYS.TAP, {
+        volume: nextLikedState ? 0.72 : 0.3,
+      });
       showToast(
         nextLikedState
           ? `${movieTitle} added to liked movies.`
@@ -190,7 +192,7 @@ const HomeScreen = () => {
       );
     } catch (toggleError) {
       console.error('Unable to update movie like:', toggleError);
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR, { volume: 0.62, releaseAfterMs: 1900 });
       showToast('Unable to update this like right now.', { type: 'error' });
     }
   };
@@ -208,7 +210,7 @@ const HomeScreen = () => {
         style={styles.movieItem}
         pressedScale={0.97}
         onPress={() => {
-          playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+          playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
           navigation.navigate('MovieDetails', { movieId: item.id });
         }}
       >
@@ -245,7 +247,7 @@ const HomeScreen = () => {
           <Text style={styles.sectionTitle}>{item.title}</Text>
           <TouchableOpacity
             onPress={() => {
-              playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+              playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
               navigation.getParent()?.navigate('Movies', { section: item.key });
             }}
           >
@@ -288,7 +290,7 @@ const HomeScreen = () => {
         contentStyle={styles.featuredCardContent}
         pressedScale={0.975}
         onPress={() => {
-          playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+          playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
           navigation.navigate('MovieDetails', { movieId: item.id });
         }}
       >
@@ -335,7 +337,7 @@ const HomeScreen = () => {
         <AnimatedPressable
           pressedScale={0.985}
           onPress={() => {
-            playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+            playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.32 });
             setSearchQuery('');
             setSearchFocused(false);
             navigation.navigate('MovieDetails', { movieId: item.id });
@@ -439,7 +441,7 @@ const HomeScreen = () => {
           <View style={styles.adminSection}>
             <TouchableOpacity
               onPress={() => {
-                playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.34 });
                 navigation.navigate('Admin');
               }}
             >
@@ -484,7 +486,7 @@ const HomeScreen = () => {
             <TouchableOpacity
               style={styles.searchIconContainer}
               onPress={() => {
-                playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
                 navigation.getParent()?.navigate('Movies', { section: 'now_playing' });
               }}
             >

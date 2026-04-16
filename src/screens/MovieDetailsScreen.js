@@ -117,12 +117,12 @@ const MovieDetailsScreen = () => {
 
   const handlePlayTrailer = () => {
     if (!trailerVideoId) {
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR, { volume: 0.64, releaseAfterMs: 1900 });
       showToast('Trailer is not available for this movie yet.', { type: 'error' });
       return;
     }
 
-    playSoundEffect(SOUND_EFFECT_KEYS.TRAILER);
+    playSoundEffect(SOUND_EFFECT_KEYS.TRAILER, { volume: 0.9, releaseAfterMs: 12000 });
     navigation.navigate('Player', {
       videoId: trailerVideoId,
       title: movie.title || movie.name,
@@ -141,7 +141,9 @@ const MovieDetailsScreen = () => {
       const nextLikedState = await toggleMovieLikeState(movieId);
       const movieTitle = movie?.title || movie?.name || 'Movie';
 
-      playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+      playSoundEffect(nextLikedState ? SOUND_EFFECT_KEYS.SUCCESS : SOUND_EFFECT_KEYS.TAP, {
+        volume: nextLikedState ? 0.72 : 0.3,
+      });
       showToast(
         nextLikedState
           ? `${movieTitle} added to liked movies.`
@@ -150,13 +152,13 @@ const MovieDetailsScreen = () => {
       );
     } catch (error) {
       console.error('Unable to update movie like:', error);
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR, { volume: 0.62, releaseAfterMs: 1900 });
       showToast('Unable to update this like right now.', { type: 'error' });
     }
   };
 
   const handleBookTicket = () => {
-    playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+    playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.34 });
     navigation.navigate('LocationSelection', {
       movieTitle: movie.title || movie.name,
       movieId,
@@ -271,7 +273,7 @@ const MovieDetailsScreen = () => {
             <TouchableOpacity
               style={styles.myTicketsLinkWrap}
               onPress={() => {
-                playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
                 navigation.navigate('MyTickets');
               }}
             >

@@ -128,12 +128,12 @@ const SeatSelectionScreen = ({ navigation, route }) => {
     if (selectedSeats.length >= MAX_SELECTED_SEATS) {
       const message = `You can select up to ${MAX_SELECTED_SEATS} seats per booking.`;
       setScreenError(message);
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR, { volume: 0.64, releaseAfterMs: 1900 });
       showToast(message, { type: 'error' });
       return;
     }
 
-    playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+    playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.28 });
     setSelectedSeats((current) => [...current, seatId]);
   };
 
@@ -142,7 +142,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
       return;
     }
 
-    playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+    playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
     setSelectedTierFilter((current) => (current === tier ? null : tier));
   };
 
@@ -199,7 +199,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
         theaterFormats: location?.theaterDetails?.formats || [],
       });
 
-      playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS);
+      playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS, { volume: 0.82, releaseAfterMs: 2300 });
       showToast('Ticket booked successfully!', { type: 'success' });
       openDigitalTicket({
         ticketId: booking.ticketId,
@@ -212,7 +212,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
         const warningMessage =
           'Booking server is temporarily unavailable. Opening your ticket preview now.';
 
-        playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS);
+        playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS, { volume: 0.72, releaseAfterMs: 2200 });
         showToast(warningMessage, { type: 'info' });
         openDigitalTicket({
           ticketId: fallbackTicketId,
@@ -224,7 +224,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
 
       const errorMessage = getBookingErrorMessage(error);
       setScreenError(errorMessage);
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR, { volume: 0.65, releaseAfterMs: 2000 });
       showToast(errorMessage, { type: 'error' });
     } finally {
       setBookingInProgress(false);
@@ -237,7 +237,7 @@ const SeatSelectionScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
-            playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+            playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.34 });
             navigation.goBack();
           }}
         >

@@ -17,6 +17,7 @@ import {
   getStreamHistoryKey,
   saveToWatchHistory,
 } from '../services/streamCatalog';
+import { playSoundEffect, SOUND_EFFECT_KEYS } from '../services/soundEffects';
 
 const NativeWebView = Platform.OS === 'web' ? null : require('react-native-webview').WebView;
 
@@ -127,6 +128,8 @@ const PlayerScreen = () => {
   }, []);
 
   const toggleFullscreen = async () => {
+    playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.26 });
+
     if (Platform.OS === 'web') {
       setManualFullscreen((current) => !current);
       return;
@@ -141,6 +144,7 @@ const PlayerScreen = () => {
         setManualFullscreen(false);
       }
     } catch (error) {
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR, { volume: 0.58, releaseAfterMs: 1700 });
       console.warn('Unable to toggle fullscreen mode:', error);
     }
   };
@@ -150,9 +154,12 @@ const PlayerScreen = () => {
       return;
     }
 
+    playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
+
     try {
       await Linking.openURL(embedUrl);
     } catch (error) {
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR, { volume: 0.6, releaseAfterMs: 1800 });
       console.error('Unable to open external stream link:', error);
     }
   };
@@ -183,12 +190,24 @@ const PlayerScreen = () => {
       scrollEnabled={!isFullscreenMode}
     >
       {isFullscreenMode ? (
-        <TouchableOpacity style={styles.landscapeBackButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.landscapeBackButton}
+          onPress={() => {
+            playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.32 });
+            navigation.goBack();
+          }}
+        >
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       ) : (
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.32 });
+              navigation.goBack();
+            }}
+          >
             <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Player</Text>

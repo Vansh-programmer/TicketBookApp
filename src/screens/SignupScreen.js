@@ -156,13 +156,13 @@ const SignupScreen = ({ navigation }) => {
 
     try {
       await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-      playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS);
+      playSoundEffect(SOUND_EFFECT_KEYS.SUCCESS, { volume: 0.8, releaseAfterMs: 2200 });
       showToast('Account created successfully!', { type: 'success' });
       navigation.replace('Home');
     } catch (error) {
       const message = getFirebaseAuthErrorMessage(error);
       setAuthError(message);
-      playSoundEffect(SOUND_EFFECT_KEYS.ERROR);
+      playSoundEffect(SOUND_EFFECT_KEYS.ERROR, { volume: 0.62, releaseAfterMs: 2000 });
       showToast(message, { type: 'error' });
     } finally {
       setIsLoading(false);
@@ -184,7 +184,7 @@ const SignupScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => {
-              playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+              playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.32 });
               navigation.goBack();
             }}
           >
@@ -286,7 +286,7 @@ const SignupScreen = ({ navigation }) => {
               />
               <TouchableOpacity
                 onPress={() => {
-                  playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                  playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
                   setShowPassword((current) => !current);
                 }}
                 style={styles.passwordToggleIcon}
@@ -318,7 +318,7 @@ const SignupScreen = ({ navigation }) => {
               />
               <TouchableOpacity
                 onPress={() => {
-                  playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                  playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.3 });
                   setShowConfirmPassword((current) => !current);
                 }}
                 style={styles.passwordToggleIcon}
@@ -366,7 +366,7 @@ const SignupScreen = ({ navigation }) => {
             <Text style={styles.loginText}>Already registered?</Text>
             <TouchableOpacity
               onPress={() => {
-                playSoundEffect(SOUND_EFFECT_KEYS.TAP);
+                playSoundEffect(SOUND_EFFECT_KEYS.TAP, { volume: 0.34 });
                 navigation.navigate('Login');
               }}
               disabled={isLoading}
