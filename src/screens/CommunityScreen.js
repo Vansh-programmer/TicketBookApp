@@ -20,8 +20,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, ref as storageRef, uploadBytes, uploadString } from 'firebase/storage';
 import AnimatedPressable from '../components/AnimatedPressable';
 import GlassSurface from '../components/GlassSurface';
 import NeonGlowButton from '../components/NeonGlowButton';
@@ -44,6 +45,20 @@ const GIF_URL_PATTERN = /\.(gif)(\?.*)?$/i;
 const AUDIO_URL_PATTERN = /\.(mp3|wav|m4a|aac|ogg|oga|webm)(\?.*)?$/i;
 const MIN_VOICE_NOTE_DURATION_MS = 700;
 const MAX_INLINE_WEB_AUDIO_BYTES = 700 * 1024;
+const AUDIO_FILE_EXTENSION_PATTERN = /\.([a-z0-9]+)(?:\?.*)?$/i;
+
+const AUDIO_MIME_TYPE_BY_EXTENSION = {
+  m4a: 'audio/mp4',
+  mp4: 'audio/mp4',
+  aac: 'audio/aac',
+  '3gp': 'audio/3gpp',
+  amr: 'audio/amr',
+  wav: 'audio/wav',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  webm: 'audio/webm',
+};
 
 const INTERACTION_THEMES = [
   {
@@ -239,6 +254,60 @@ const formatDurationLabel = (durationMs) => {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 };
 
+const isHttpUri = (uri) => /^https?:\/\//i.test(uri || '');
+
+const getAudioExtensionFromUri = (uri) => {
+  const extension = uri?.match(AUDIO_FILE_EXTENSION_PATTERN)?.[1]?.toLowerCase();
+  return extension || 'm4a';
+};
+
+const getAudioMimeTypeFromUri = (uri) => {
+  const extension = getAudioExtensionFromUri(uri);
+  return AUDIO_MIME_TYPE_BY_EXTENSION[extension] || 'audio/mp4';
+};
+
+const waitForVoiceFileReady = async (uri, maxAttempts = 5) => {
+  if (Platform.OS === 'web' || !uri) {
+    return;
+  }
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(uri, { size: true });
+      if (fileInfo?.exists && (typeof fileInfo.size !== 'number' || fileInfo.size > 0)) {
+        return;
+      }
+    } catch (error) {
+      // Retry a few times because some Android devices finish flushing recorder output slightly later.
+    }
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 180));
+    }
+  }
+};
+
+const normalizeVoiceUriForRead = async (uri) => {
+  if (Platform.OS === 'web' || !uri || !uri.startsWith('content://')) {
+    return uri;
+  }
+
+  const extension = getAudioExtensionFromUri(uri);
+  const cacheRoot = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+
+  if (!cacheRoot) {
+    return uri;
+  }
+
+  const targetUri = `${cacheRoot}community-voice-${Date.now()}.${extension}`;
+  await FileSystem.copyAsync({
+    from: uri,
+    to: targetUri,
+  });
+
+  return targetUri;
+};
+
 const blobToDataUrl = (blob) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -247,23 +316,50 @@ const blobToDataUrl = (blob) =>
     reader.readAsDataURL(blob);
   });
 
-const loadBlobFromUri = async (uri) => {
+const loadBlobFromUri = async (uri, mimeType = 'audio/mp4') => {
   try {
     const response = await fetch(uri);
-    if (!response.ok) {
+    if (isHttpUri(uri) && !response.ok) {
       throw new Error(`Failed to load recording (${response.status})`);
     }
 
-    return await response.blob();
+    const blob = await response.blob();
+    if (blob?.size > 0 || !isHttpUri(uri)) {
+      return blob;
+    }
   } catch (fetchError) {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.onload = () => resolve(xhr.response);
-      xhr.onerror = () => reject(fetchError || new Error('Unable to load recording from device storage.'));
-      xhr.responseType = 'blob';
-      xhr.open('GET', uri, true);
-      xhr.send(null);
-    });
+    try {
+      return await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          if (xhr.response) {
+            resolve(xhr.response);
+            return;
+          }
+
+          reject(fetchError || new Error('Unable to load recording from device storage.'));
+        };
+        xhr.onerror = () => reject(fetchError || new Error('Unable to load recording from device storage.'));
+        xhr.responseType = 'blob';
+        xhr.open('GET', uri, true);
+        xhr.send(null);
+      });
+    } catch (xhrError) {
+      if (Platform.OS === 'web') {
+        throw xhrError;
+      }
+
+      const base64Audio = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      if (!base64Audio) {
+        throw xhrError;
+      }
+
+      const fallbackResponse = await fetch(`data:${mimeType};base64,${base64Audio}`);
+      return fallbackResponse.blob();
+    }
   }
 };
 
@@ -574,15 +670,32 @@ const CommunityScreen = () => {
       return null;
     }
 
-    let blob;
+    let sourceUri = voiceNote.uri;
 
     try {
-      blob = await loadBlobFromUri(voiceNote.uri);
+      sourceUri = await normalizeVoiceUriForRead(voiceNote.uri);
     } catch (error) {
-      throw new Error('Unable to read this recording on your device. Record again and try posting once more.');
+      console.warn('Unable to normalize recorded voice URI, using original URI:', error);
+    }
+
+    const voiceExtension = getAudioExtensionFromUri(sourceUri);
+    const voiceMimeType = getAudioMimeTypeFromUri(sourceUri);
+
+    try {
+      await waitForVoiceFileReady(sourceUri);
+    } catch (error) {
+      console.warn('Voice file readiness check failed:', error);
     }
 
     if (Platform.OS === 'web') {
+      let blob;
+
+      try {
+        blob = await loadBlobFromUri(sourceUri, voiceMimeType);
+      } catch (error) {
+        throw new Error('Unable to read this recording on your device. Record again and try posting once more.');
+      }
+
       if (blob.size > MAX_INLINE_WEB_AUDIO_BYTES) {
         throw new Error('Voice note is too long for web posting right now. Keep it under about 25 seconds.');
       }
@@ -595,14 +708,43 @@ const CommunityScreen = () => {
     }
 
     const safeAuthorId = (currentUserLikeId || 'guest').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const fileRef = storageRef(storage, `communityVoice/${safeAuthorId}/voice-${Date.now()}.m4a`);
+    const fileRef = storageRef(
+      storage,
+      `communityVoice/${safeAuthorId}/voice-${Date.now()}.${voiceExtension}`,
+    );
 
-    await uploadBytes(fileRef, blob, {
-      contentType: blob.type || 'audio/m4a',
-    });
+    try {
+      const base64Audio = await FileSystem.readAsStringAsync(sourceUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-    if (typeof blob.close === 'function') {
-      blob.close();
+      if (!base64Audio) {
+        throw new Error('Empty recording payload.');
+      }
+
+      await uploadString(fileRef, base64Audio, 'base64', {
+        contentType: voiceMimeType,
+      });
+    } catch (nativeReadError) {
+      let blob;
+      try {
+        blob = await loadBlobFromUri(sourceUri, voiceMimeType);
+      } catch (blobError) {
+        console.error('Voice note upload read failed on native device:', {
+          sourceUri,
+          nativeReadError: nativeReadError?.message || nativeReadError,
+          blobError: blobError?.message || blobError,
+        });
+        throw new Error('Unable to read this recording on your device. Record again and try posting once more.');
+      }
+
+      await uploadBytes(fileRef, blob, {
+        contentType: blob.type || voiceMimeType,
+      });
+
+      if (typeof blob.close === 'function') {
+        blob.close();
+      }
     }
 
     return getDownloadURL(fileRef);
