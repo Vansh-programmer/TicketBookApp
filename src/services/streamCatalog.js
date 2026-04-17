@@ -607,7 +607,7 @@ const VID_SRC_EMBED_HOSTS = [
 ];
 
 const STREAM_PLACEHOLDER_THUMBNAIL =
-  'https://dummyimage.com/1280x720/0b1220/ffffff.png&text=TicketBook+Stream';
+  'https://placehold.co/1280x720/0b1220/ffffff/png?text=TicketBook+Stream';
 
 let tmdbPosterCache = null;
 
@@ -706,7 +706,14 @@ const normalizeHttpsUrl = (value) => {
   }
 
   try {
-    const parsed = new URL(value.trim());
+    const trimmed = value.trim();
+    const normalizedInput = trimmed.startsWith('//')
+      ? `https:${trimmed}`
+      : trimmed.startsWith('http://')
+      ? `https://${trimmed.slice('http://'.length)}`
+      : trimmed;
+
+    const parsed = new URL(normalizedInput);
     return parsed.protocol === 'https:' ? parsed.toString() : '';
   } catch (error) {
     return '';
@@ -762,7 +769,6 @@ const fetchVidSrcPagePayload = async ({ host, page, signal }) => {
     method: 'GET',
     headers: {
       Accept: 'application/json, text/plain, */*',
-      'Cache-Control': 'no-cache',
     },
     signal,
   });
@@ -782,6 +788,22 @@ const fetchVidSrcPagePayload = async ({ host, page, signal }) => {
 
 export const getStreamThumbnail = (thumbnailUrl) =>
   normalizeHttpsUrl(thumbnailUrl) || STREAM_PLACEHOLDER_THUMBNAIL;
+
+const isStreamPlaceholderThumbnail = (thumbnailUrl) => {
+  const normalizedThumbnail = normalizeHttpsUrl(thumbnailUrl);
+  if (!normalizedThumbnail) {
+    return true;
+  }
+
+  if (normalizedThumbnail === STREAM_PLACEHOLDER_THUMBNAIL) {
+    return true;
+  }
+
+  return (
+    normalizedThumbnail.includes('dummyimage.com/') ||
+    normalizedThumbnail.includes('placehold.co/')
+  );
+};
 
 export const getFeaturedStream = (catalog = STREAM_CATALOG) => catalog[0] || null;
 
@@ -905,9 +927,18 @@ const mapVidSrcMovieToStreamItem = (rawMovie = {}, page = 1, index = 0) => {
     ? yearFromRelease
     : new Date().getFullYear();
 
-  const thumbnail =
-    normalizeHttpsUrl(getFirstTextValue(rawMovie, ['poster', 'poster_url', 'posterUrl', 'image', 'thumbnail'])) ||
-    '';
+  const rawThumbnail = getFirstTextValue(rawMovie, [
+    'poster',
+    'poster_url',
+    'posterUrl',
+    'image',
+    'thumbnail',
+    'poster_path',
+    'backdrop_path',
+  ]);
+  const thumbnail = rawThumbnail.startsWith('/')
+    ? getImageUrl(rawThumbnail, 'w500') || ''
+    : normalizeHttpsUrl(rawThumbnail) || '';
 
   const mood = getFirstTextValue(rawMovie, ['mood']) || 'Trending';
   const badge = getFirstTextValue(rawMovie, ['badge']) || 'VidSrc';
@@ -943,8 +974,15 @@ const enrichMoviesWithThumbnails = async (movies = []) => {
 
   return Promise.all(
     movies.map(async (movie) => {
-      if (movie.thumbnail) {
+      if (movie.thumbnail && !isStreamPlaceholderThumbnail(movie.thumbnail)) {
         return movie;
+      }
+
+      if (!normalizeVidSrcIdentifier(movie.tmdbId)) {
+        return {
+          ...movie,
+          thumbnail: getStreamThumbnail(movie.thumbnail),
+        };
       }
 
       const posterUrl = await resolvePosterUrlForTmdbId(movie.tmdbId);
@@ -956,7 +994,42 @@ const enrichMoviesWithThumbnails = async (movies = []) => {
   );
 };
 
-export const fetchLatestVidSrcMovies = async ({ pages = [1], signal } = {}) => {
+export const enrichStreamCatalogThumbnails = async (movies = []) => {
+  const enrichedMovies = await enrichMoviesWithThumbnails(movies);
+  return enrichedMovies.map((movie) => ({
+    ...movie,
+    thumbnail: movie.thumbnail || STREAM_PLACEHOLDER_THUMBNAIL,
+  }));
+};
+
+const fetchLatestVidSrcPageMovies = async ({ page, signal }) => {
+  const pageErrors = [];
+
+  for (const host of VID_SRC_EMBED_HOSTS) {
+    try {
+      const pagePayload = await fetchVidSrcPagePayload({ host, page, signal });
+      const list = extractListPayload(pagePayload);
+
+      return list
+        .map((movie, index) => mapVidSrcMovieToStreamItem(movie, page, index))
+        .filter(Boolean);
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw error;
+      }
+
+      pageErrors.push(error);
+    }
+  }
+
+  if (pageErrors.length > 0) {
+    throw pageErrors[pageErrors.length - 1];
+  }
+
+  return [];
+};
+
+export const fetchLatestVidSrcMovies = async ({ pages = [1], signal, includePosterEnrichment = false } = {}) => {
   const normalizedPages = Array.isArray(pages)
     ? [...new Set(pages.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0))]
     : [1];
@@ -965,36 +1038,30 @@ export const fetchLatestVidSrcMovies = async ({ pages = [1], signal } = {}) => {
     return [];
   }
 
-  const aggregatedMovies = [];
-  const fetchErrors = [];
+  const pageResults = await Promise.allSettled(
+    normalizedPages.map((page) => fetchLatestVidSrcPageMovies({ page, signal })),
+  );
 
-  for (const page of normalizedPages) {
-    let pagePayload = null;
+  const fetchErrors = pageResults
+    .filter((result) => result.status === 'rejected')
+    .map((result) => result.reason)
+    .filter(Boolean);
 
-    for (const host of VID_SRC_EMBED_HOSTS) {
-      try {
-        pagePayload = await fetchVidSrcPagePayload({ host, page, signal });
-        break;
-      } catch (error) {
-        fetchErrors.push(error);
-      }
+  const aggregatedMovies = pageResults
+    .filter((result) => result.status === 'fulfilled')
+    .flatMap((result) => result.value);
+
+  // De-duplicate in case mirrors return overlapping records between pages.
+  const dedupedMovies = Array.from(
+    new Map(aggregatedMovies.map((movie) => [movie.historyKey || movie.id, movie])).values(),
+  );
+
+  if (dedupedMovies.length > 0) {
+    if (!includePosterEnrichment) {
+      return dedupedMovies;
     }
 
-    if (!pagePayload) {
-      continue;
-    }
-
-    const list = extractListPayload(pagePayload);
-    const pageMovies = list
-      .map((movie, index) => mapVidSrcMovieToStreamItem(movie, page, index))
-      .filter(Boolean);
-
-    const enrichedMovies = await enrichMoviesWithThumbnails(pageMovies);
-    aggregatedMovies.push(...enrichedMovies);
-  }
-
-  if (aggregatedMovies.length > 0) {
-    return aggregatedMovies;
+    return enrichMoviesWithThumbnails(dedupedMovies);
   }
 
   if (fetchErrors.length > 0) {

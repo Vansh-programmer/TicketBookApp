@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import {
+  enrichStreamCatalogThumbnails,
   STREAM_FILTERS,
   fetchLatestVidSrcMovies,
   getFeaturedStream,
@@ -30,6 +31,7 @@ import {
 } from '../services/adminCatalog';
 
 const STREAM_HORIZONTAL_INSET = 14;
+const LOCAL_STREAM_THUMBNAIL = require('../../assets/branding/splash-icon.png');
 
 const StreamScreen = ({ navigation }) => {
   const [baseCatalog, setBaseCatalog] = useState([]);
@@ -39,6 +41,7 @@ const StreamScreen = ({ navigation }) => {
   const [watchHistory, setWatchHistory] = useState([]);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState('');
+  const [failedThumbnailKeys, setFailedThumbnailKeys] = useState({});
 
   const catalog = useMemo(
     () => mergeStreamCatalog(baseCatalog, adminEntries),
@@ -48,13 +51,53 @@ const StreamScreen = ({ navigation }) => {
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController();
+    let enrichmentRunId = 0;
 
-    const loadVidSrcCatalog = async () => {
-      setLoadingCatalog(true);
-      setCatalogError('');
+    const runThumbnailEnrichment = async (movies = []) => {
+      if (!Array.isArray(movies) || movies.length === 0) {
+        return;
+      }
+
+      const runId = ++enrichmentRunId;
 
       try {
-        const latestMovies = await fetchLatestVidSrcMovies({ pages: [1, 2, 3, 4, 5, 6], signal: controller.signal });
+        const enrichedMovies = await enrichStreamCatalogThumbnails(movies);
+        if (!isMounted || runId !== enrichmentRunId) {
+          return;
+        }
+
+        setBaseCatalog(enrichedMovies);
+        void saveVidSrcCatalogCache(enrichedMovies);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        console.error('Unable to enrich stream thumbnails:', error);
+      }
+    };
+
+    const loadVidSrcCatalog = async () => {
+      setCatalogError('');
+
+      const cachedMovies = await loadVidSrcCatalogCache();
+      if (!isMounted) {
+        return;
+      }
+
+      if (cachedMovies.length > 0) {
+        setBaseCatalog(cachedMovies);
+        void runThumbnailEnrichment(cachedMovies);
+      }
+
+      setLoadingCatalog(cachedMovies.length === 0);
+
+      try {
+        const latestMovies = await fetchLatestVidSrcMovies({
+          pages: [1, 2, 3, 4, 5, 6],
+          signal: controller.signal,
+          includePosterEnrichment: false,
+        });
 
         if (!isMounted) {
           return;
@@ -63,8 +106,8 @@ const StreamScreen = ({ navigation }) => {
         if (latestMovies.length > 0) {
           setBaseCatalog(latestMovies);
           void saveVidSrcCatalogCache(latestMovies);
+          void runThumbnailEnrichment(latestMovies);
         } else {
-          const cachedMovies = await loadVidSrcCatalogCache();
           setBaseCatalog(cachedMovies);
           setCatalogError(
             cachedMovies.length > 0
@@ -78,8 +121,6 @@ const StreamScreen = ({ navigation }) => {
         }
 
         console.error('Unable to load VidSrc stream catalog:', error);
-
-        const cachedMovies = await loadVidSrcCatalogCache();
         setBaseCatalog(cachedMovies);
         setCatalogError(
           cachedMovies.length > 0
@@ -176,6 +217,38 @@ const StreamScreen = ({ navigation }) => {
   const featuredItem = filteredCatalog[0] || getFeaturedStream(catalog);
   const sections = useMemo(() => getStreamSections(filteredCatalog), [filteredCatalog]);
 
+  const markThumbnailFailed = useCallback((item) => {
+    const key = getStreamHistoryKey(item);
+    if (!key) {
+      return;
+    }
+
+    setFailedThumbnailKeys((previous) => {
+      if (previous[key]) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        [key]: true,
+      };
+    });
+  }, []);
+
+  const getThumbnailSource = useCallback(
+    (item) => {
+      const key = getStreamHistoryKey(item);
+      if (key && failedThumbnailKeys[key]) {
+        return LOCAL_STREAM_THUMBNAIL;
+      }
+
+      return {
+        uri: getStreamThumbnail(item?.thumbnail),
+      };
+    },
+    [failedThumbnailKeys],
+  );
+
   const openInBrowser = async (item) => {
     if (!item?.embedUrl) {
       return;
@@ -192,8 +265,9 @@ const StreamScreen = ({ navigation }) => {
     <View style={styles.streamCard}>
       <TouchableOpacity onPress={() => openPlayer(item)} activeOpacity={0.88}>
         <Image
-          source={{ uri: getStreamThumbnail(item.thumbnail) }}
+          source={getThumbnailSource(item)}
           style={styles.streamCardImage}
+          onError={() => markThumbnailFailed(item)}
         />
       </TouchableOpacity>
       <View style={styles.streamCardBody}>
@@ -245,8 +319,9 @@ const StreamScreen = ({ navigation }) => {
       {featuredItem ? (
         <TouchableOpacity style={styles.featuredCard} activeOpacity={0.9} onPress={() => openPlayer(featuredItem)}>
           <Image
-            source={{ uri: getStreamThumbnail(featuredItem.thumbnail) }}
+            source={getThumbnailSource(featuredItem)}
             style={styles.featuredImage}
+            onError={() => markThumbnailFailed(featuredItem)}
           />
           <View style={styles.featuredOverlay}>
             <Text style={styles.featuredBadge}>{featuredItem.badge}</Text>
