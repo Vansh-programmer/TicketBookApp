@@ -256,6 +256,15 @@ const formatDurationLabel = (durationMs) => {
 
 const isHttpUri = (uri) => /^https?:\/\//i.test(uri || '');
 
+const clampMediaAspectRatio = (value) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return null;
+  }
+
+  return Math.min(2.4, Math.max(0.5, numericValue));
+};
+
 const getAudioExtensionFromUri = (uri) => {
   const extension = uri?.match(AUDIO_FILE_EXTENSION_PATTERN)?.[1]?.toLowerCase();
   return extension || 'm4a';
@@ -602,11 +611,10 @@ const CommunityScreen = () => {
     }
 
     const rawAspectRatio = width / height;
-    if (!Number.isFinite(rawAspectRatio) || rawAspectRatio <= 0) {
+    const clampedAspectRatio = clampMediaAspectRatio(rawAspectRatio);
+    if (!clampedAspectRatio) {
       return;
     }
-
-    const clampedAspectRatio = Math.min(2.4, Math.max(0.5, rawAspectRatio));
 
     setMediaAspectRatios((current) => {
       const previousValue = current[mediaKey];
@@ -857,8 +865,7 @@ const CommunityScreen = () => {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 5],
+      allowsEditing: false,
       quality: 0.35,
       base64: true,
     });
@@ -866,11 +873,18 @@ const CommunityScreen = () => {
     const selectedAsset = result.assets?.[0];
 
     if (!result.canceled && selectedAsset?.uri) {
+      const selectedAspectRatio = clampMediaAspectRatio(
+        selectedAsset.width && selectedAsset.height
+          ? selectedAsset.width / selectedAsset.height
+          : null,
+      );
+
       setSelectedImage({
         uri: selectedAsset.uri,
         dataUri: selectedAsset.base64
           ? `data:${selectedAsset.mimeType || 'image/jpeg'};base64,${selectedAsset.base64}`
           : null,
+        aspectRatio: selectedAspectRatio,
       });
       setRecordedVoiceNote(null);
       setVoiceError('');
@@ -945,6 +959,7 @@ const CommunityScreen = () => {
         mediaUrl: uploadedPrimaryMediaUrl,
         mediaType: primaryAttachment?.mediaType || null,
         mediaLabel: primaryAttachment?.mediaLabel || '',
+        mediaAspectRatio: selectedImage?.aspectRatio || null,
         tenorPostId: primaryAttachment?.tenorPostId || null,
         tenorAspectRatio: primaryAttachment?.tenorAspectRatio || null,
         audioTitle: primaryAttachment?.audioTitle || '',
@@ -1126,7 +1141,8 @@ const CommunityScreen = () => {
       const mediaUri = item.mediaUrl || item.imageUri;
       const isGifMedia = item.mediaType === 'gif';
       const mediaKey = `${item.id}:${mediaUri}`;
-      const mediaAspectRatio = mediaAspectRatios[mediaKey];
+      const mediaAspectRatio =
+        mediaAspectRatios[mediaKey] || clampMediaAspectRatio(item.mediaAspectRatio);
 
       return (
         <>
@@ -1139,7 +1155,7 @@ const CommunityScreen = () => {
                 mediaAspectRatio ? styles.postImageDynamic : null,
                 mediaAspectRatio ? { aspectRatio: mediaAspectRatio } : null,
               ]}
-              resizeMode={isGifMedia ? 'contain' : 'cover'}
+              resizeMode="contain"
               onLoad={(event) => {
                 const source = event?.nativeEvent?.source;
                 cacheMediaAspectRatio(mediaKey, source?.width, source?.height);
@@ -1505,7 +1521,14 @@ const CommunityScreen = () => {
                 ) : null}
 
                 {selectedImage?.uri ? (
-                  <Image source={{ uri: selectedImage.uri }} style={styles.selectedImagePreview} />
+                  <Image
+                    source={{ uri: selectedImage.uri }}
+                    style={[
+                      styles.selectedImagePreview,
+                      selectedImage.aspectRatio ? { aspectRatio: selectedImage.aspectRatio, height: undefined } : null,
+                    ]}
+                    resizeMode="contain"
+                  />
                 ) : null}
 
                 <View style={styles.composerActions}>
@@ -1775,6 +1798,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 14,
     marginHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   composerActions: {
     flexDirection: 'row',
@@ -1918,11 +1942,12 @@ const styles = StyleSheet.create({
   postImage: {
     width: '100%',
     height: 232,
+    backgroundColor: '#07090F',
   },
   postImageDynamic: {
     height: undefined,
-    minHeight: 180,
-    maxHeight: 420,
+    minHeight: 160,
+    maxHeight: 520,
   },
   postGif: {
     backgroundColor: '#07090F',

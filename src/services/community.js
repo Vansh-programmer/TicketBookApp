@@ -125,6 +125,10 @@ const normalizePost = (docSnapshot) => {
     mediaUrl: data.mediaUrl || data.imageUri || null,
     mediaType: data.mediaType || (data.imageUri ? 'image' : null),
     mediaLabel: getDisplayText(data.mediaLabel, ''),
+    mediaAspectRatio:
+      typeof data.mediaAspectRatio === 'number' && Number.isFinite(data.mediaAspectRatio)
+        ? data.mediaAspectRatio
+        : null,
     tenorPostId: data.tenorPostId || null,
     tenorAspectRatio: data.tenorAspectRatio || null,
     audioTitle: getDisplayText(data.audioTitle, ''),
@@ -188,6 +192,7 @@ export const createCommunityPost = async ({
   mediaUrl,
   mediaType,
   mediaLabel,
+  mediaAspectRatio,
   tenorPostId,
   tenorAspectRatio,
   audioTitle,
@@ -212,6 +217,10 @@ export const createCommunityPost = async ({
     mediaUrl: imageData || mediaUrl || null,
     mediaType: imageData ? 'image' : mediaType || null,
     mediaLabel: mediaLabel || '',
+    mediaAspectRatio:
+      typeof mediaAspectRatio === 'number' && Number.isFinite(mediaAspectRatio)
+        ? mediaAspectRatio
+        : null,
     tenorPostId: tenorPostId || null,
     tenorAspectRatio: tenorAspectRatio || null,
     audioTitle: audioTitle || '',
